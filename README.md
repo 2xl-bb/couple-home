@@ -4,9 +4,10 @@
 
 ## 最近更新
 
+- 新增 Render + Neon PostgreSQL + 私有 Supabase Storage + 私有 Cloudflare R2 部署路径。照片和视频按登录身份隔离，视频由浏览器使用短时预签名 URL 直接上传到 R2。
 - 新增可选相册 AI 整理、自动分类和语义搜索；不配置 AI 时仍可按备注搜索和按月份浏览。配置方法与数据发送范围见[相册 AI 配置](deploy/相册AI配置.md)。
 
-最近一次完整回归为 139 项通过，包括自定义宠物、备份恢复和异常照片预检等测试。验证过程见[验证记录](deploy/node/验证结果.md)。
+最近一次完整回归为 152 项通过，包括自定义宠物、备份恢复、成员私有照片、视频权限与异常照片预检等测试。验证过程见[验证记录](deploy/node/验证结果.md)。
 
 - 首次使用可直接设置两位成员密码，默认身份为成员一、成员二；管理员可自定义身份名称。
 - 相册可保存 2,000 张照片，每次多选最多 20 张，保留继续添加入口；重试去重，并发上传也不会突破容量上限。
@@ -50,6 +51,18 @@ pnpm run start:node
 - [验证记录](deploy/node/验证结果.md)
 
 默认 SQLite 数据库、照片和备份保存在 `dist-node/data/`、`dist-node/backups/`。正式服务器应配置独立的持久化路径并定期校验备份，不要将真实数据提交到仓库。
+
+## Render + Supabase + R2
+
+云端版让 Render 运行 Node.js 服务，Neon PostgreSQL 保存记录和 Session，Supabase 私有 Storage 保存压缩后的 JPEG，Cloudflare R2 私有桶保存视频。Render 本地磁盘不保存唯一数据。构建与验证命令：
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run build:supabase
+node --test tests/postgres-adapter.test.mjs tests/supabase-storage.test.mjs tests/r2-video.test.mjs tests/media-auth.test.mjs
+```
+
+Render 使用 `process.env.PORT` 并监听 `0.0.0.0`。`DATABASE_URL` 支持 Neon Pooler 或 Supabase Transaction Pooler，并且必须启用 TLS。完整环境变量、R2 CORS 和部署步骤见 [Render/Supabase/R2 部署说明](deploy/render-supabase/README.md)。
 
 ## Sites / Cloudflare 版本
 

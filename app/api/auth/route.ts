@@ -8,7 +8,7 @@ export const dynamic='force-dynamic';
 export async function POST(req:Request){try{
   requireSameOrigin(req);if(!env.DB)throw new HomeError('云端正在准备。',503);
   const db=env.DB,now=Date.now(),ipHash=await hashToken(req.headers.get('cf-connecting-ip')||'unknown');
-  await db.prepare('INSERT INTO auth_attempts (ip_hash,count,expires_at) VALUES (?,1,?) ON CONFLICT(ip_hash) DO UPDATE SET count=CASE WHEN expires_at<? THEN 1 ELSE count+1 END,expires_at=CASE WHEN expires_at<? THEN ? ELSE expires_at END').bind(ipHash,now+10*60000,now,now,now+10*60000).run();
+  await db.prepare('INSERT INTO auth_attempts (ip_hash,count,expires_at) VALUES (?,1,?) ON CONFLICT(ip_hash) DO UPDATE SET count=CASE WHEN auth_attempts.expires_at<? THEN 1 ELSE auth_attempts.count+1 END,expires_at=CASE WHEN auth_attempts.expires_at<? THEN ? ELSE auth_attempts.expires_at END').bind(ipHash,now+10*60000,now,now,now+10*60000).run();
   const attempt=await db.prepare('SELECT count FROM auth_attempts WHERE ip_hash=?').bind(ipHash).first<{count:number}>();
   if((attempt?.count||0)>10)throw new HomeError('试得有些频繁，10 分钟后再来吧。',429);
   const raw=await req.text();if(raw.length>2000)throw new HomeError('登录内容太长。');

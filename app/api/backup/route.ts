@@ -8,7 +8,7 @@ export async function GET(){try{
  await requireNativeOwner();const c=await context();
  const [room,photos]=await c.db.batch([
   c.db.prepare('SELECT data,revision,updated_at FROM room_state WHERE id=1'),
-  c.db.prepare('SELECT id,caption,created_at FROM photos ORDER BY created_at'),
+  c.db.prepare('SELECT id,caption,created_at FROM photos WHERE user_id=? ORDER BY created_at').bind(c.member.userId),
  ]);
  const row=room.results[0] as {data:string,revision:number,updated_at:number}|undefined;
  if(!row)throw new HomeError('小屋正在准备，请重试。',503);

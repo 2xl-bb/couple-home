@@ -16,6 +16,7 @@ import * as photos from '../app/api/photos/route.ts';
 import * as photo from '../app/api/photos/[id]/route.ts';
 import * as albumAIRoutes from '../app/api/album-ai/route.ts';
 import * as albumSearch from '../app/api/album-search/route.ts';
+import * as videos from './video-routes.mjs';
 
 const routes = new Map([['/api/home', home], ['/api/auth', auth], ['/api/passwords', passwords],
   ['/api/recovery', recovery], ['/api/backup', backup], ['/api/restore', restore], ['/api/photos', photos], ['/api/album-ai', albumAIRoutes], ['/api/album-search', albumSearch]]);
@@ -26,6 +27,13 @@ staticFiles.set('/entry.js', ['entry.js', 'text/javascript; charset=utf-8']);
 staticFiles.set('/album.js', ['album.js', 'text/javascript; charset=utf-8']);
 const loopback = value => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(value);
 const jsonError = (error, status) => Response.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
+
+export function contentSecurityPolicy(videoOrigin) {
+  const media = typeof videoOrigin === 'string' && /^https:\/\/[a-z0-9.-]+\.r2\.cloudflarestorage\.com$/.test(videoOrigin)
+    ? ` ${videoOrigin}` : '';
+  return "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; " +
+    `connect-src 'self' data:${media}; media-src 'self' blob:${media}; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`;
+}
 
 function readBody(stream, limit) {
   return new Promise((resolveBody, reject) => {
@@ -52,14 +60,14 @@ export function validateOrigin(value) {
   return origin;
 }
 
-export function createApplication({ root, dataDir, origin, trustProxy = false, setupCode, albumAI = {} }) {
+export function createApplication({ root, dataDir, origin, trustProxy = false, setupCode, albumAI = {}, database, bucket, videoStore, storage, entryFactory }) {
   validateOrigin(origin);
-  const db = openDatabase(dataDir, resolve(root, 'drizzle'));
-  const env = { DB: db, BUCKET: localBucket(dataDir), APP_ORIGIN: origin, PAGES_ORIGIN: '',
+  const db = database || openDatabase(dataDir, resolve(root, 'drizzle'));
+  const env = { DB: db, BUCKET: storage?.photos || bucket || localBucket(dataDir), VIDEO_STORE: storage?.videos || videoStore || null, APP_ORIGIN: origin, PAGES_ORIGIN: '',
     ALBUM_AI_BASE_URL: albumAI.baseURL, ALBUM_AI_API_KEY: albumAI.apiKey,
     ALBUM_AI_VISION_MODEL: albumAI.visionModel, ALBUM_AI_EMBEDDING_MODEL: albumAI.embeddingModel };
   let entry;
-  try { entry = createEntry({ db, dataDir, origin, setupCode }); }
+  try { entry = entryFactory ? entryFactory({ db, origin, setupCode }) : createEntry({ db, dataDir, origin, setupCode }); }
   catch (error) { db.close(); throw error; }
   const assets = new Map();
   let active = 0;
@@ -68,7 +76,7 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
     return requests.run({ request, env }, async () => {
       const url = new URL(request.url);
       if (url.origin !== env.APP_ORIGIN) return jsonError('请求来源不正确。', 400);
-      if (url.pathname === '/api/entry' && request.method === 'GET') return Response.json(entry.status(), { headers: { 'Cache-Control': 'no-store' } });
+      if (url.pathname === '/api/entry' && request.method === 'GET') return Response.json(await entry.status(), { headers: { 'Cache-Control': 'no-store' } });
       if (url.pathname === '/api/setup' && request.method === 'POST') {
         const password = await entry.setup(request);
         return auth.POST(new Request(new URL('/api/auth', request.url), { method: 'POST', headers: request.headers,
@@ -76,8 +84,19 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
       }
       if (url.pathname === '/api/identities' && request.method === 'PUT') return Response.json(await entry.rename(request), { headers: { 'Cache-Control': 'no-store' } });
       if (url.pathname === '/healthz' && request.method === 'GET') {
-        db.raw.prepare('SELECT 1').get();
+        if (db.health) await db.health();
+        else db.raw.prepare('SELECT 1').get();
+        if (env.BUCKET.health) await env.BUCKET.health();
+        if (env.VIDEO_STORE?.health) await env.VIDEO_STORE.health();
         return Response.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+      }
+      if (url.pathname === '/api/videos/presign' && request.method === 'POST') return videos.presign(request);
+      const videoMatch = /^\/api\/videos\/([a-f0-9-]{36})(?:\/(complete|url))?$/.exec(url.pathname);
+      if (videoMatch) {
+        if (videoMatch[2] === 'complete' && request.method === 'POST') return videos.complete(request, videoMatch[1]);
+        if (videoMatch[2] === 'url' && request.method === 'GET') return videos.download(request, videoMatch[1]);
+        if (!videoMatch[2] && request.method === 'DELETE') return videos.remove(request, videoMatch[1]);
+        return new Response(null, { status: 405 });
       }
       const match = /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})$/.exec(url.pathname);
       const route = routes.get(url.pathname) || (match ? photo : null);
@@ -85,7 +104,7 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
         const handler = route[request.method];
         if (typeof handler !== 'function') return new Response(null, { status: 405, headers: { Allow: Object.keys(route).filter(x => /^[A-Z]+$/.test(x)).join(', ') } });
         const response = await handler(request, { params: Promise.resolve(match ? { id: match[1] } : {}) });
-        if (response.ok && ['/api/home', '/api/restore'].includes(url.pathname)) return Response.json({ ...await response.json(), identityNames: identityNames(db) }, { headers: response.headers });
+        if (response.ok && ['/api/home', '/api/restore'].includes(url.pathname)) return Response.json({ ...await response.json(), identityNames: await (entry.names ? entry.names() : identityNames(db)) }, { headers: response.headers });
         return response;
       }
       const asset = staticFiles.get(url.pathname);
@@ -117,7 +136,7 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
       let body;
       if (!['GET', 'HEAD'].includes(method)) {
         const photoUpload = url.pathname === '/api/photos' && method === 'POST';
-        const limit = photoUpload ? 5 * 1024 * 1024 : ['/api/auth', '/api/passwords', '/api/recovery', '/api/setup', '/api/identities', '/api/album-ai', '/api/album-search'].includes(url.pathname) ? 2000 : 2 * 1024 * 1024;
+        const limit = photoUpload ? 5 * 1024 * 1024 : ['/api/auth', '/api/passwords', '/api/recovery', '/api/setup', '/api/identities', '/api/album-ai', '/api/album-search', '/api/videos/presign'].includes(url.pathname) || url.pathname.endsWith('/complete') ? 2000 : 2 * 1024 * 1024;
         if (Number(headers.get('content-length') || 0) > limit) throw new HomeError('请求内容太大。', 413);
         body = await readBody(incoming, limit);
         if (body.length && url.pathname.startsWith('/api/')) {
@@ -146,7 +165,7 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
       Object.assign(headers, {
         'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin',
         'X-Frame-Options': 'DENY', 'Cross-Origin-Resource-Policy': 'same-origin',
-        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data:; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+        'Content-Security-Policy': contentSecurityPolicy(env.VIDEO_STORE?.browserOrigin),
       });
       if (env.APP_ORIGIN.startsWith('https:')) headers['Strict-Transport-Security'] = 'max-age=31536000';
       outgoing.writeHead(response.status, headers);
@@ -163,6 +182,7 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
     if (closed) return;
     closed = true;
     if (server.listening) await new Promise((resolveClose, reject) => server.close(error => error ? reject(error) : resolveClose()));
-    db.close();
+    await db.close();
+    await env.VIDEO_STORE?.close?.();
   } };
 }

@@ -53,10 +53,23 @@ export function openDatabase(dataDir, migrationsDir) {
 }
 
 export function photoPath(root, key) {
-  if (typeof key !== 'string' || !/^photos\/(?:[a-f0-9]{8}-[a-f0-9-]{27}|import-[a-f0-9]{64})$/.test(key)) {
+  if (typeof key !== 'string' || !/^photos\/(?:[a-f0-9]{64}\/)?(?:[a-f0-9]{8}-[a-f0-9-]{27}|import-[a-f0-9]{64})$/.test(key)) {
     throw new Error('无效的照片存储键');
   }
   return resolve(root, key);
+}
+
+// A small backend registry keeps the application independent from where each
+// media kind is stored. The local Node build supplies only photos; Render
+// supplies Supabase photos and an R2 video store.
+export function createStorageAdapters({ photos, videos = null } = {}) {
+  if (!photos || !['put', 'get', 'delete'].every(name => typeof photos[name] === 'function')) {
+    throw new Error('照片存储适配器无效');
+  }
+  if (videos && !['createUpload', 'complete', 'createDownload', 'delete'].every(name => typeof videos[name] === 'function')) {
+    throw new Error('视频存储适配器无效');
+  }
+  return Object.freeze({ photos, videos });
 }
 
 export function localBucket(root) {

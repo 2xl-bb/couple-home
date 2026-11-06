@@ -11,6 +11,9 @@ export async function POST(req:Request){try{
 }catch(e){return fail(e)}}
 export async function DELETE(req:Request){try{
   requireSameOrigin(req);const c=await context();if(!c.canManagePasswords)throw new HomeError('请管理员清除整理结果。',403);
-  await c.db.batch([c.db.prepare('DELETE FROM photo_ai_jobs'),c.db.prepare('DELETE FROM photo_ai')]);
+  await c.db.batch([
+    c.db.prepare('DELETE FROM photo_ai_jobs WHERE photo_id IN (SELECT id FROM photos WHERE user_id=?)').bind(c.member.userId),
+    c.db.prepare('DELETE FROM photo_ai WHERE photo_id IN (SELECT id FROM photos WHERE user_id=?)').bind(c.member.userId),
+  ]);
   return json({ok:true});
 }catch(e){return fail(e)}}

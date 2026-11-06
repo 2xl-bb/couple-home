@@ -46,5 +46,6 @@ yarn-error.log*
 
 !.env.example
 /dist-node/
+/dist-supabase/
 /data/
 /backups/

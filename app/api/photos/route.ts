@@ -1,5 +1,6 @@
 import { context, json, fail, requireSameOrigin } from '../../../lib/home-server';
 import { HomeError } from '../../../lib/home-domain.mjs';
+import { hashToken } from '../../../lib/home-auth';
 export const dynamic='force-dynamic';
 export async function POST(req:Request){try{
   requireSameOrigin(req);const c=await context();
@@ -11,20 +12,20 @@ export async function POST(req:Request){try{
   const bytes=await file.arrayBuffer(),head=new Uint8Array(bytes,0,3);if(head[0]!==255||head[1]!==216||head[2]!==255)throw new HomeError('照片格式无效。');
   let id=crypto.randomUUID(),exists=false;
   if(body.get('merge')==='1'){
-    const digest=await crypto.subtle.digest('SHA-256',await new Blob([bytes,new TextEncoder().encode(caption)]).arrayBuffer());
+    const digest=await crypto.subtle.digest('SHA-256',await new Blob([bytes,new TextEncoder().encode(caption+c.member.userId)]).arrayBuffer());
     id='import-'+Array.from(new Uint8Array(digest),n=>n.toString(16).padStart(2,'0')).join('');
-    exists=!!(await c.db.prepare('SELECT id FROM photos WHERE id=?').bind(id).first());
-    if(exists){if(originalDate!==null)await c.db.prepare('UPDATE photos SET created_at=MIN(created_at,?) WHERE id=?').bind(createdAt,id).run();return json({id,caption,url:'/api/photos/'+id,existed:true})}
+    exists=!!(await c.db.prepare('SELECT id FROM photos WHERE id=? AND user_id=?').bind(id,c.member.userId).first());
+    if(exists){if(originalDate!==null)await c.db.prepare('UPDATE photos SET created_at=MIN(created_at,?) WHERE id=? AND user_id=?').bind(createdAt,id,c.member.userId).run();return json({id,caption,url:'/api/photos/'+id,existed:true})}
   }
-  const count=await c.db.prepare('SELECT COUNT(*) AS n FROM photos').first<{n:number}>();if((count?.n||0)>=2000)throw new HomeError('相册暂时最多支持 2,000 张照片。');
-  const objectKey='photos/'+id;
+  const count=await c.db.prepare('SELECT COUNT(*) AS n FROM photos WHERE user_id=?').bind(c.member.userId).first<{n:number}>();if((count?.n||0)>=2000)throw new HomeError('相册暂时最多支持 2,000 张照片。');
+  const objectKey='photos/'+await hashToken(c.member.userId)+'/'+id;
   await c.bucket.put(objectKey,bytes,{httpMetadata:{contentType:'image/jpeg'}});
   // Check capacity inside the write so simultaneous uploads cannot claim the same last slot.
   let inserted;
-  try{inserted=await c.db.prepare('INSERT OR IGNORE INTO photos (id,object_key,caption,created_at,user_id) SELECT ?,?,?,?,? WHERE (SELECT COUNT(*) FROM photos)<2000').bind(id,objectKey,caption,createdAt,c.member.userId).run()}catch(e){await c.bucket.delete(objectKey);throw e}
+  try{inserted=await c.db.prepare('INSERT OR IGNORE INTO photos (id,object_key,caption,created_at,user_id) SELECT ?,?,?,?,? WHERE (SELECT COUNT(*) FROM photos WHERE user_id=?)<2000').bind(id,objectKey,caption,createdAt,c.member.userId,c.member.userId).run()}catch(e){await c.bucket.delete(objectKey);throw e}
   if(!inserted.meta.changes){
-    const saved=await c.db.prepare('SELECT id FROM photos WHERE id=?').bind(id).first();
-    if(saved){if(originalDate!==null)await c.db.prepare('UPDATE photos SET created_at=MIN(created_at,?) WHERE id=?').bind(createdAt,id).run();return json({id,caption,url:'/api/photos/'+id,existed:true})}
+    const saved=await c.db.prepare('SELECT id FROM photos WHERE id=? AND user_id=?').bind(id,c.member.userId).first();
+    if(saved){if(originalDate!==null)await c.db.prepare('UPDATE photos SET created_at=MIN(created_at,?) WHERE id=? AND user_id=?').bind(createdAt,id,c.member.userId).run();return json({id,caption,url:'/api/photos/'+id,existed:true})}
     await c.bucket.delete(objectKey);throw new HomeError('相册暂时最多支持 2,000 张照片。');
   }
   return json({id,caption,url:'/api/photos/'+id});

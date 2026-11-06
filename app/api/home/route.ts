@@ -14,7 +14,7 @@ export async function POST(req:Request){
     const raw=await req.text();if(raw.length>2*1024*1024)throw new HomeError('内容太大，请分批导入。',413);
     const op=parseObject(raw);
     if(typeof op.id!=='string'||!/^[a-zA-Z0-9_-]{8,100}$/.test(op.id))throw new HomeError('操作编号无效。');
-    const photoIds=op.kind==='idea.done'?(await c.db.prepare('SELECT id FROM photos').all<{id:string}>()).results.map(p=>p.id):[];
+    const photoIds=op.kind==='idea.done'?(await c.db.prepare('SELECT id FROM photos WHERE user_id=?').bind(c.member.userId).all<{id:string}>()).results.map(p=>p.id):[];
     await applyStoredOperation(c.db,op,{...c.member,photoIds,canManageSharedImport:c.canManagePasswords},c.now);
     return json(await snapshot(c));
   }catch(e){return fail(e)}

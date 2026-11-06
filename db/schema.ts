@@ -77,3 +77,15 @@ export const recoveryCodes = sqliteTable('recovery_codes', {
   codeHash: text('code_hash').notNull(),
   createdAt: integer('created_at').notNull(),
 });
+
+export const videos = sqliteTable('videos', {
+  id: text('id').primaryKey(),
+  objectKey: text('object_key').notNull(),
+  caption: text('caption').notNull(),
+  contentType: text('content_type').notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
+  createdAt: integer('created_at').notNull(),
+  userId: text('user_id').notNull(),
+  ownerSlot: integer('owner_slot').notNull(),
+  status: text('status').notNull(),
+}, table => [uniqueIndex('videos_object_key_unique').on(table.objectKey)]);

@@ -17,7 +17,7 @@ test('browser policy permits only the configured private R2 bucket for video tra
   assert.doesNotMatch(contentSecurityPolicy('https://evil.example'),/evil\.example/);
 });
 
-test('session ownership isolates photo bytes and every video presign/download operation',async()=>{
+test('authenticated couple shares video completion, listing, download and deletion',async()=>{
   const dataDir=await mkdtemp(resolve(tmpdir(),'couple-media-auth-')),objects=new Map();
   const videoStore={
     async createUpload(input){objects.set(input.key,{...input,uploaded:false});return'https://r2.example/upload'},
@@ -34,13 +34,14 @@ test('session ownership isolates photo bytes and every video presign/download op
     const login=await call('/api/auth',{method:'POST',body:{slot:2,password:passwords[1]}});assert.equal(login.status,200);
     const partner=login.headers.getSetCookie()[0].split(';')[0];
     assert.equal((await call('/api/videos/presign',{method:'POST',body:{contentType:'video/mp4',sizeBytes:10}})).status,401);
-    const ticket=await call('/api/videos/presign',{method:'POST',cookie:owner,body:{contentType:'video/mp4',sizeBytes:10,caption:'私密'}});assert.equal(ticket.status,201,await ticket.clone().text());
+    const ticket=await call('/api/videos/presign',{method:'POST',cookie:owner,body:{contentType:'video/mp4',sizeBytes:10,caption:'共同回忆'}});assert.equal(ticket.status,201,await ticket.clone().text());
     const {id}=await ticket.json();
-    assert.equal((await call(`/api/videos/${id}/url`,{cookie:partner})).status,404);
-    assert.equal((await call(`/api/videos/${id}/complete`,{method:'POST',cookie:partner})).status,404);
-    assert.equal((await call(`/api/videos/${id}/complete`,{method:'POST',cookie:owner})).status,200);
-    assert.equal((await call(`/api/videos/${id}/url`,{cookie:owner})).status,200);
-    const partnerHome=await(await call('/api/home',{cookie:partner})).json();assert.deepEqual(partnerHome.state.videos,[]);
+    assert.equal((await call(`/api/videos/${id}/complete`,{method:'POST',cookie:partner})).status,200);
+    assert.equal((await call(`/api/videos/${id}/url`,{cookie:partner})).status,200);
+    assert.equal((await call(`/api/videos/${id}/url`)).status,401);
+    const partnerHome=await(await call('/api/home',{cookie:partner})).json();assert.deepEqual(partnerHome.state.videos.map(v=>v.id),[id]);
     const ownerHome=await(await call('/api/home',{cookie:owner})).json();assert.deepEqual(ownerHome.state.videos.map(v=>v.id),[id]);
+    assert.equal((await call(`/api/videos/${id}`,{method:'DELETE',cookie:partner})).status,200);
+    assert.equal((await call(`/api/videos/${id}/url`,{cookie:owner})).status,404);
   }finally{await app.close();await rm(dataDir,{recursive:true,force:true})}
 });

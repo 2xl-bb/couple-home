@@ -21,7 +21,7 @@ test('AI configuration and provider responses have bounded, strict formats', () 
   assert.deepEqual(normalizeAnalysis({ description: ' 海边 ', tags: ['日落', '日落'], category: '风景' }), { description: '海边', tags: ['日落'], category: '风景' });
 });
 
-test('optional AI album integrates with isolated accounts, photos and a mock compatible provider', async t => {
+test('optional AI album shares photos and analysis across both authenticated members', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'couple-album-ai-'));
   const key = 'fixture-provider-key-never-return-to-browser';
   let requests = 0, mode = 'ok', visionHook = null, app;
@@ -58,12 +58,12 @@ test('optional AI album integrates with isolated accounts, photos and a mock com
   const cookie = setup.headers.getSetCookie()[0].split(';')[0];
   const partnerLogin = await call('/api/auth', { method: 'POST', body: { slot: 2, password: passwords[1] } });
   const partner = partnerLogin.headers.getSetCookie()[0].split(';')[0];
-  async function upload(caption) {
+  async function upload(caption, actor = cookie) {
     const body = new FormData(); body.append('photo', new File([new Uint8Array([255, 216, 255, 224, 1, 2, 255, 217])], 'fixture.jpg', { type: 'image/jpeg' })); body.append('caption', caption);
-    const response = await app.dispatch(new Request(options.origin + '/api/photos', { method: 'POST', headers: { Origin: options.origin, Cookie: cookie }, body }));
+    const response = await app.dispatch(new Request(options.origin + '/api/photos', { method: 'POST', headers: { Origin: options.origin, Cookie: actor }, body }));
     assert.equal(response.status, 200); return (await response.json()).id;
   }
-  const beach = await upload('周末散步'), dinner = await upload('一起做晚餐'), extra = await upload('第三张照片');
+  const beach = await upload('周末散步'), dinner = await upload('一起做晚餐'), extra = await upload('第三张照片', partner);
   const analyze = photoId => call('/api/album-ai', { method: 'POST', cookie, body: { photoId, consent: true } });
 
   await t.test('upload, status and normal album never call the provider; AI needs login, origin, owner and consent', async () => {
@@ -84,7 +84,7 @@ test('optional AI album integrates with isolated accounts, photos and a mock com
     assert.equal((await analyze(beach)).status, 200); assert.equal((await analyze(dinner)).status, 200); assert.equal(requests, 4);
     const retry = await (await analyze(beach)).json(); assert.equal(retry.cached, true); assert.equal(requests, 4);
     const after = await (await call('/api/home', { cookie: partner })).json();
-    assert.equal(after.state.photos.find(photo => photo.id === beach), undefined);
+    assert.equal(after.state.photos.find(photo => photo.id === beach).ai.category, '风景');
     assert.ok(!JSON.stringify(after).includes('embedding')); assert.ok(!JSON.stringify(after).includes(key));
     const changed = await (await call('/api/home?since=' + before.syncTag, { cookie })).json(); assert.ok(changed.state);
     await app.close(); app = createApplication(options);
@@ -92,7 +92,7 @@ test('optional AI album integrates with isolated accounts, photos and a mock com
   });
   await t.test('semantic search matches similar meaning without shared caption words and excludes unrelated photos', async () => {
     const response = await call('/api/album-search', { method: 'POST', cookie: partner, body: { query: '傍晚海岸的金色天空' } }); assert.equal(response.status, 200);
-    const data = await response.json(); assert.deepEqual(data.matches, []); assert.equal(data.indexed, 0);
+    const data = await response.json(); assert.deepEqual(data.matches.map(match=>match.id), [beach]); assert.equal(data.indexed, 2);
     const ownerSearch=await(await call('/api/album-search',{method:'POST',cookie,body:{query:'傍晚海岸的金色天空'}})).json();assert.deepEqual(ownerSearch.matches.map(match=>match.id),[beach]);assert.equal(ownerSearch.indexed,2);
     const seed=app.db.raw.prepare('SELECT * FROM photo_ai WHERE photo_id=?').get(beach),owner=app.db.raw.prepare('SELECT user_id FROM members WHERE slot=1').get().user_id;
     const insertPhoto=app.db.raw.prepare('INSERT INTO photos (id,object_key,caption,created_at,user_id) VALUES (?,?,?,?,?)');

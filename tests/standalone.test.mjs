@@ -108,13 +108,13 @@ test('standalone server works with no Cloudflare or ChatGPT identity', async t =
     const archive = await (await get('/api/backup', ownerCookie)).json(); assert.equal(archive.state.letters[0].text, '未来见'); assert.ok(!JSON.stringify(archive).includes('password_hash'));
   });
 
-  await t.test('JPEG photos persist privately and unsafe storage paths cannot escape the data directory', async () => {
+  await t.test('JPEG photos are shared by both members while unsafe storage paths stay blocked', async () => {
     const form = new FormData(); form.append('photo', new File([jpeg], 'memory.jpg', { type: 'image/jpeg' })); form.append('caption', '一起看海');
     const uploaded = await call('/api/photos', { method: 'POST', headers: { Origin: origin, Cookie: ownerCookie }, body: form });
     assert.equal(uploaded.status, 200, await uploaded.clone().text()); photoId = (await uploaded.json()).id;
     assert.equal((await get('/api/photos/' + photoId)).status, 401);
     assert.equal((await get('/photos/' + photoId)).status, 404);
-    assert.equal((await get('/api/photos/' + photoId, partnerCookie)).status, 404);
+    assert.equal((await get('/api/photos/' + photoId, partnerCookie)).status, 200);
     await assert.rejects(() => localBucket(dataDir).put('../escape', jpeg));
     const stored=app.db.raw.prepare('SELECT object_key FROM photos WHERE id=?').get(photoId);
     assert.deepEqual(await readFile(resolve(dataDir, stored.object_key)), jpeg);
@@ -194,7 +194,7 @@ test('standalone server works with no Cloudflare or ChatGPT identity', async t =
     const after = await (await get('/api/home', ownerCookie)).json();
     assert.equal(after.revision, before.revision); assert.equal(after.me.canManagePasswords, true);
     assert.equal(after.state.stories[0].text, '晚风很温柔');
-    assert.equal((await get('/api/photos/' + photoId, partnerCookie)).status, 404);
+    assert.equal((await get('/api/photos/' + photoId, partnerCookie)).status, 200);
   });
 
   await t.test('backup CLI executes through the current release symlink used by systemd', async () => {
@@ -218,7 +218,7 @@ test('standalone server works with no Cloudflare or ChatGPT identity', async t =
     const restored = resolve(work, 'restored'); await cp(snapshot, restored, { recursive: true });
     await app.close(); await start(restored);
     const state = await (await get('/api/home', ownerCookie)).json(); assert.equal(state.state.stories[0].title, '第一次散步');
-    assert.equal((await get('/api/photos/' + photoId, partnerCookie)).status, 404);
+    assert.equal((await get('/api/photos/' + photoId, partnerCookie)).status, 200);
     const restoredKey=app.db.raw.prepare('SELECT object_key FROM photos WHERE id=?').get(photoId).object_key;
     await writeFile(resolve(snapshot, restoredKey), 'broken'); await assert.rejects(() => verifySnapshot(snapshot), /校验失败/);
     await assert.rejects(() => createSnapshot(dataDir, resolve(dataDir, 'backups')), /数据目录之外/);

@@ -8,9 +8,10 @@ secret key in browser code or Git.
 `server/supabase/storage.mjs` exports
 `createSupabaseBucket({ url, serviceKey, bucket = 'couple-photos' })`. Its
 `put`, `get`, and `delete` methods have the same shape as `localBucket`. The
-service must first verify the Couple Home member session and photo ownership in
-its own API routes. Each member sees only rows whose `photos.user_id` matches
-the authenticated Session. The adapter uses a
+service must first verify a valid Couple Home member session in its own API
+routes. This deployment represents one couple home, so either authenticated
+member may read or remove every photo in that home. `photos.user_id` remains
+uploader attribution and is not an authorization boundary. The adapter uses a
 server-side key that bypasses Supabase RLS, so **the bucket itself cannot decide
 which Couple Home member is allowed to see a photo**. Keep photo responses
 behind `/api/photos/:id` with `Cache-Control: private, no-store`; never return a
@@ -24,7 +25,7 @@ project root URL and rejects redirects to protect the key.
 
 Startup calls `health()` and refuses a missing or public bucket. Supabase Data
 API roles have no table grants or RLS policies for these server-owned tables;
-the direct PostgreSQL connection and application ownership checks are the only
+the direct PostgreSQL connection and application Session checks are the only
 data path.
 
 The adapter uses the authenticated Storage object endpoint for reads, the

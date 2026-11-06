@@ -1,5 +1,5 @@
-const CACHE_PREFIX='couple-home-static-';
-const CACHE_NAME=CACHE_PREFIX+'v1';
+const CACHE_NAME='couple-home-v3';
+const CACHE_PREFIXES=['couple-home-','couple-home-static-'];
 const STATIC_ASSETS=['/','/manifest.json','/style.css?v=20261031-pet-design','/pet-view.js?v=20261031-pet-design','/room-helpers.js?v=20261027-album-ai','/app.js?v=20261031-pet-design','/album.js?v=20261027-album-ai','/features.js?v=20261027-album-ai','/entry.js','/favicon.svg','/icon-192.svg','/icon-512.svg','/icon-192.png','/icon-512.png'];
 
 self.addEventListener('install',event=>{event.waitUntil((async()=>{
@@ -10,7 +10,7 @@ self.addEventListener('install',event=>{event.waitUntil((async()=>{
 
 self.addEventListener('activate',event=>{event.waitUntil((async()=>{
   const names=await caches.keys();
-  await Promise.all(names.filter(name=>name.startsWith(CACHE_PREFIX)&&name!==CACHE_NAME).map(name=>caches.delete(name)));
+  await Promise.all(names.filter(name=>name!==CACHE_NAME&&CACHE_PREFIXES.some(prefix=>name.startsWith(prefix))).map(name=>caches.delete(name)));
   await self.clients.claim();
 })())});
 

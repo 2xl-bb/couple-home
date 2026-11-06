@@ -22,7 +22,10 @@ const routes = new Map([['/api/home', home], ['/api/auth', auth], ['/api/passwor
   ['/api/recovery', recovery], ['/api/backup', backup], ['/api/restore', restore], ['/api/photos', photos], ['/api/album-ai', albumAIRoutes], ['/api/album-search', albumSearch]]);
 const staticFiles = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/pet-view.js', ['pet-view.js', 'text/javascript; charset=utf-8']], ['/features.js', ['features.js', 'text/javascript; charset=utf-8']], ['/room-helpers.js', ['room-helpers.js', 'text/javascript; charset=utf-8']],
-  ['/style.css', ['style.css', 'text/css; charset=utf-8']], ['/favicon.svg', ['favicon.svg', 'image/svg+xml']]]);
+  ['/style.css', ['style.css', 'text/css; charset=utf-8']], ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
+  ['/manifest.json', ['manifest.json', 'application/manifest+json; charset=utf-8']], ['/sw.js', ['sw.js', 'text/javascript; charset=utf-8']],
+  ['/icon-192.png', ['icon-192.png', 'image/png']], ['/icon-512.png', ['icon-512.png', 'image/png']],
+  ['/icon-192.svg', ['icon-192.svg', 'image/svg+xml']], ['/icon-512.svg', ['icon-512.svg', 'image/svg+xml']]]);
 staticFiles.set('/entry.js', ['entry.js', 'text/javascript; charset=utf-8']);
 staticFiles.set('/album.js', ['album.js', 'text/javascript; charset=utf-8']);
 const loopback = value => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(value);
@@ -111,7 +114,7 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
       if (!asset) return jsonError('页面不存在。', 404);
       if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });
       if (!assets.has(url.pathname)) assets.set(url.pathname, await readFile(resolve(root, 'public', asset[0])));
-      return new Response(assets.get(url.pathname), { headers: { 'Content-Type': asset[1], 'Cache-Control': 'no-store' } });
+      return new Response(assets.get(url.pathname), { headers: { 'Content-Type': asset[1], 'Cache-Control': url.pathname === '/sw.js' ? 'no-cache' : 'no-store' } });
     });
   }
 

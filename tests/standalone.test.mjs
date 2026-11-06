@@ -160,7 +160,7 @@ test('standalone server works with no Cloudflare or ChatGPT identity', async t =
     partnerCookie=await login(2,'New789');
   });
 
-  await t.test('album accepts photos beyond 200, caps at 2000, and still permits idempotent retries', async () => {
+  await t.test('album accepts photos beyond 200, caps at 5000, and still permits idempotent retries', async () => {
     const row=app.db.raw.prepare('SELECT object_key,user_id FROM photos WHERE id=?').get(photoId);
     const insert=app.db.raw.prepare('INSERT INTO photos (id,object_key,caption,created_at,user_id) VALUES (?,?,?,?,?)');
     const add=(from,to)=>app.db.transaction(()=>{for(let i=from;i<to;i++)insert.run('capacity-fixture-'+i,row.object_key,'capacity fixture',Date.now(),row.user_id)});
@@ -169,7 +169,7 @@ test('standalone server works with no Cloudflare or ChatGPT identity', async t =
     try{
       add(0,199);const uploaded=await upload();assert.equal(uploaded.status,200,await uploaded.clone().text());uploadedIds.push((await uploaded.json()).id);
       assert.equal(app.db.raw.prepare('SELECT COUNT(*) AS n FROM photos').get().n,201);
-      add(199,1997);assert.equal(app.db.raw.prepare('SELECT COUNT(*) AS n FROM photos').get().n,1999);
+      add(199,4997);assert.equal(app.db.raw.prepare('SELECT COUNT(*) AS n FROM photos').get().n,4999);
       const put=app.env.BUCKET.put;let arrivals=0,release;
       const gate=new Promise(resolve=>release=resolve),timer=setTimeout(()=>release(),1500);
       app.env.BUCKET.put=async(...args)=>{if(++arrivals===2)release();await gate;return put(...args)};
@@ -177,10 +177,10 @@ test('standalone server works with no Cloudflare or ChatGPT identity', async t =
       try{concurrent=await Promise.all([upload('last slot A'),upload('last slot B')])}finally{clearTimeout(timer);app.env.BUCKET.put=put}
       for(const response of concurrent)if(response.ok)uploadedIds.push((await response.json()).id);
       assert.deepEqual(concurrent.map(r=>r.status).sort(),[200,400]);
-      assert.equal(app.db.raw.prepare('SELECT COUNT(*) AS n FROM photos').get().n,2000);
+      assert.equal(app.db.raw.prepare('SELECT COUNT(*) AS n FROM photos').get().n,5000);
       const retry=await upload();assert.equal(retry.status,200);assert.equal((await retry.json()).existed,true);
       const body=new FormData();body.append('photo',new File([jpeg],'full.jpg',{type:'image/jpeg'}));body.append('caption','new at capacity');
-      const full=await call('/api/photos',{method:'POST',headers:{Origin:origin,Cookie:ownerCookie},body});assert.equal(full.status,400);assert.match(await full.text(),/2,000/);
+      const full=await call('/api/photos',{method:'POST',headers:{Origin:origin,Cookie:ownerCookie},body});assert.equal(full.status,400);assert.match(await full.text(),/5,000/);
       assert.equal((await readdir(resolve(dataDir,'photos'),{recursive:true,withFileTypes:true})).filter(entry=>entry.isFile()).length,3,'rejected uploads must not leave unreferenced photo files');
     }finally{
       app.db.raw.prepare("DELETE FROM photos WHERE id LIKE 'capacity-fixture-%'").run();

@@ -7,8 +7,8 @@ const schemaPath = fileURLToPath(new URL('../deploy/render-supabase/schema.sql',
 const connectionString = 'postgresql://example:example@localhost:6543/postgres?sslmode=require';
 
 test('PostgreSQL translation preserves the existing photo write and deduplication conditions', () => {
-  assert.deepEqual(postgresSql('INSERT OR IGNORE INTO photos (id,object_key) SELECT ?,? WHERE (SELECT COUNT(*) FROM photos)<2000'), {
-    text: 'INSERT INTO photos (id,object_key) SELECT $1,$2 WHERE (SELECT COUNT(*) FROM photos)<2000 ON CONFLICT DO NOTHING', parameters: 2,
+  assert.deepEqual(postgresSql('INSERT OR IGNORE INTO photos (id,object_key) SELECT ?,? WHERE (SELECT COUNT(*) FROM photos)<5000'), {
+    text: 'INSERT INTO photos (id,object_key) SELECT $1,$2 WHERE (SELECT COUNT(*) FROM photos)<5000 ON CONFLICT DO NOTHING', parameters: 2,
   });
   assert.equal(postgresSql('UPDATE photos SET created_at=MIN(created_at,?) WHERE id=?').text,
     'UPDATE photos SET created_at=LEAST(created_at, $1) WHERE id=$2');

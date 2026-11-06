@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Couple Home">
+  <rect width="512" height="512" rx="112" fill="#fbf4ed"/>
+  <path d="M112 243 256 120l144 123v147a32 32 0 0 1-32 32H144a32 32 0 0 1-32-32Z" fill="#dba8a4" stroke="#8f4a5b" stroke-width="24" stroke-linejoin="round"/>
+  <path d="M256 371c-16-19-67-51-67-93 0-45 56-59 67-24 11-35 67-21 67 24 0 42-51 74-67 93Z" fill="#8f4a5b"/>
+</svg>

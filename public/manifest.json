@@ -1,0 +1,14 @@
+{
+  "name": "Couple Home",
+  "short_name": "Couple Home",
+  "description": "属于两个人的回忆与日常小屋",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbf4ed",
+  "theme_color": "#8f4a5b",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

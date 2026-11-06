@@ -2,6 +2,7 @@ const $=s=>document.querySelector(s), OLD_KEY='our-little-days-v1';
 const {requestFailureMessage,photoNearViewport,createDraftStore}=LittleDaysHelpers;
 const STANDALONE_MODE=window.LITTLE_DAYS_STANDALONE===true;
 const API_ORIGIN=window.LITTLE_DAYS_API_ORIGIN||'',PAGES_MODE=!!API_ORIGIN,ownerSignIn=STANDALONE_MODE?'#':API_ORIGIN+'/signin-with-chatgpt?return_to=%2F';
+if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{}));
 const DEVICE_KEY='little-days-device-session:'+API_ORIGIN;let rememberedSession=null;try{const saved=JSON.parse(localStorage.getItem(DEVICE_KEY)||'null');if(saved&&saved.expiresAt>Date.now()&&/^[a-f0-9]{64}$/.test(saved.token))rememberedSession=saved;else localStorage.removeItem(DEVICE_KEY)}catch{}
 let pagesToken=rememberedSession?.token||'';function forgetDevice(){pagesToken='';rememberedSession=null;try{localStorage.removeItem(DEVICE_KEY)}catch{}}
 const photoCache=new Map();

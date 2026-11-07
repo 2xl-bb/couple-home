@@ -50,6 +50,9 @@ test('PostgreSQL applies immutable incremental photo caption migrations',async()
   const db=await openPostgres({connectionString,schemaPath,migrationsPath,poolFactory:Pool});await db.close();
   assert.ok(statements.some(item=>item.sql.includes('CREATE TABLE photo_captions')));
   assert.ok(statements.some(item=>item.sql.startsWith('INSERT INTO couple_home_schema_migrations')&&item.values?.[0]==='0002_photo_captions.sql'));
+  assert.ok(statements.some(item=>item.sql.includes('ADD COLUMN taken_at TIMESTAMPTZ')));
+  assert.ok(statements.some(item=>item.sql.includes('TO_TIMESTAMP(created_at / 1000.0)')));
+  assert.ok(statements.some(item=>item.sql.startsWith('INSERT INTO couple_home_schema_migrations')&&item.values?.[0]==='0003_photo_taken_at.sql'));
 });
 
 test('a failed room compare-and-swap rolls back its event claim', async () => {

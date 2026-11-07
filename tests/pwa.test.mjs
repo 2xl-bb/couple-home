@@ -36,7 +36,8 @@ test('PWA icons are real PNG files with the declared dimensions',async()=>{
 test('service worker registration and cache rules exclude private and streaming traffic',async()=>{
   const app=await text('public/app.js'),worker=await text('public/sw.js');
   assert.match(app,/serviceWorker\.register\('\/sw\.js'/);
-  assert.match(worker,/CACHE_NAME='couple-home-v4'/);
+  assert.match(worker,/CACHE_NAME='couple-home-v6'/);
+  assert.match(worker,/\/exifr\.js\?v=7\.1\.3/);
   assert.match(worker,/url\.origin!==self\.location\.origin/);
   assert.match(worker,/url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(worker,/request\.headers\.has\('authorization'\)/);

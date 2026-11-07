@@ -2,11 +2,13 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { mkdir, readFile, writeFile, cp } from 'node:fs/promises';
+import { vendorExifr } from './vendor-exifr.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = resolve(root, 'dist-node');
 const require = createRequire(import.meta.url);
 const { build } = createRequire(require.resolve('drizzle-kit'))('esbuild');
+await vendorExifr();
 await mkdir(resolve(output, 'public'), { recursive: true });
 await build({
   absWorkingDir: root,
@@ -25,7 +27,7 @@ html = html.replace(/<a class="owner-login-link"[^>]*>.*?<\/a>/, '')
   .replace('<head>', '<head><script>window.LITTLE_DAYS_STANDALONE=true;</script>');
 if (!html.includes('id="entry-help"') || !html.includes('src="/entry.js"')) throw new Error('首次设置入口模板未正确生成。');
 await writeFile(resolve(output, 'public/index.html'), html);
-for (const name of ['app.js', 'entry.js', 'pet-view.js', 'features.js', 'room-helpers.js', 'album.js', 'style.css', 'favicon.svg', 'manifest.json', 'sw.js', 'icon-192.svg', 'icon-512.svg', 'icon-192.png', 'icon-512.png']) await cp(resolve(root, 'public', name), resolve(output, 'public', name));
+for (const name of ['app.js', 'entry.js', 'pet-view.js', 'features.js', 'room-helpers.js', 'album.js', 'exifr.js', 'style.css', 'favicon.svg', 'manifest.json', 'sw.js', 'icon-192.svg', 'icon-512.svg', 'icon-192.png', 'icon-512.png']) await cp(resolve(root, 'public', name), resolve(output, 'public', name));
 await cp(resolve(root, 'drizzle'), resolve(output, 'drizzle'), { recursive: true });
 await cp(resolve(root, 'deploy/node'), resolve(output, 'deploy'), { recursive: true });
 await cp(resolve(root, 'deploy/node/environment.example'), resolve(output, '.env.example'));

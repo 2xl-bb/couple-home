@@ -42,6 +42,12 @@ test('sort toggle reverses years, months and photo order',()=>{
   assert.equal(f.get('#album-sort').textContent,'↑');
 });
 
+test('taken_at overrides a recent upload date for historical grouping',()=>{
+  const f=fixture([{id:'scan',caption:'Old memory',created_at:stamp(2026,11,1),taken_at:stamp(2012,3,4)}]);
+  f.render();const html=f.output['#photo-list'];
+  assert.match(html,/2012年/);assert.match(html,/3月/);assert.doesNotMatch(html,/2026年/);
+});
+
 test('a 250-photo month creates 24 cards until explicitly expanded',()=>{
   const photos=Array.from({length:250},(_,index)=>({id:`p-${index}`,caption:`Photo ${index}`,created_at:stamp(2026,11,30)-index}));
   const f=fixture(photos);f.render();

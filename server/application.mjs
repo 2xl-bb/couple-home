@@ -15,6 +15,7 @@ import * as restore from '../app/api/restore/route.ts';
 import * as photos from '../app/api/photos/route.ts';
 import * as photo from '../app/api/photos/[id]/route.ts';
 import * as photoCaption from '../app/api/photos/[id]/caption/route.ts';
+import * as photoDate from '../app/api/photos/[id]/date/route.ts';
 import * as albumAIRoutes from '../app/api/album-ai/route.ts';
 import * as albumSearch from '../app/api/album-search/route.ts';
 import * as videos from './video-routes.mjs';
@@ -25,6 +26,7 @@ const staticFiles = new Map([['/', ['index.html', 'text/html; charset=utf-8']], 
   ['/pet-view.js', ['pet-view.js', 'text/javascript; charset=utf-8']], ['/features.js', ['features.js', 'text/javascript; charset=utf-8']], ['/room-helpers.js', ['room-helpers.js', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']], ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
   ['/manifest.json', ['manifest.json', 'application/manifest+json; charset=utf-8']], ['/sw.js', ['sw.js', 'text/javascript; charset=utf-8']],
+  ['/exifr.js', ['exifr.js', 'text/javascript; charset=utf-8']],
   ['/icon-192.png', ['icon-192.png', 'image/png']], ['/icon-512.png', ['icon-512.png', 'image/png']],
   ['/icon-192.svg', ['icon-192.svg', 'image/svg+xml']], ['/icon-512.svg', ['icon-512.svg', 'image/svg+xml']]]);
 staticFiles.set('/entry.js', ['entry.js', 'text/javascript; charset=utf-8']);
@@ -103,8 +105,9 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
         return new Response(null, { status: 405 });
       }
       const captionMatch = /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})\/caption$/.exec(url.pathname);
-      const match = captionMatch || /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})$/.exec(url.pathname);
-      const route = routes.get(url.pathname) || (captionMatch ? photoCaption : match ? photo : null);
+      const dateMatch = /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})\/date$/.exec(url.pathname);
+      const match = captionMatch || dateMatch || /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})$/.exec(url.pathname);
+      const route = routes.get(url.pathname) || (captionMatch ? photoCaption : dateMatch ? photoDate : match ? photo : null);
       if (route) {
         const handler = route[request.method];
         if (typeof handler !== 'function') return new Response(null, { status: 405, headers: { Allow: Object.keys(route).filter(x => /^[A-Z]+$/.test(x)).join(', ') } });

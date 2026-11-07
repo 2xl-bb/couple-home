@@ -67,7 +67,7 @@ test('album renders a minimal grouped timeline and shared caption history',()=>{
 function uploadFixture(){
  let submit,uploaded=[],fail='',refreshes=0,closed=0;
  const nodes={'#modal':{dataset:{},addEventListener(){}},'#upload-progress':{},'#upload-status':{},'#active-form button[type="submit"]':{},'#active-form input[name="photo"]':{files:[]},'#photo-preview':{}};
- const context=vm.createContext({$:selector=>nodes[selector],needReady:()=>true,modal(){},field:(...args)=>args.join(' '),form:(html,fn)=>{assert.match(html,/multiple/);submit=fn},compressPhoto:async file=>file,uploadPhoto:async file=>{if(file.name===fail){fail='';throw Error('网络中断')}uploaded.push(file.name)},refreshNow:async()=>{refreshes++},close:()=>{closed++},toast(){},URL,albumLimit:12,albumMonth:'2026-01'});
+ const context=vm.createContext({$:selector=>nodes[selector],needReady:()=>true,modal(){},field:(...args)=>args.join(' '),form:(html,fn)=>{assert.match(html,/multiple/);submit=fn},extractPhotoTakenAt:async()=>Date.now(),compressPhoto:async file=>file,uploadPhoto:async file=>{if(file.name===fail){fail='';throw Error('网络中断')}uploaded.push(file.name)},refreshNow:async()=>{refreshes++},close:()=>{closed++},toast(){},URL,albumLimit:12,albumMonth:'2026-01'});
  vm.runInContext(source.slice(source.indexOf('function addPhoto()'),source.indexOf("$('#add-photo').onclick=addPhoto;")),context);
  return {open:()=>context.addPhoto(),send:files=>{nodes['#active-form input[name="photo"]'].files=files;return submit({get:()=>''})},set fail(v){fail=v},get uploaded(){return uploaded},get refreshes(){return refreshes},get closed(){return closed}};
 }

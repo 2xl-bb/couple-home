@@ -19,6 +19,8 @@ next-env.d.ts
 
 # Test output
 /coverage/
+/public/exifr.js
+/.tmp-exifr/
 
 # Package-manager logs
 npm-debug.log*

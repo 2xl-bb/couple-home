@@ -7,7 +7,7 @@
     if (matches && searchIndex !== indexVersion(photos)) matches = null;
     const words = query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
     const rank = matches ? new Map(matches.map((match, i) => [match.id, i])) : null;
-    const result = photos.filter(photo => (!month || new Date(photo.created_at + 8 * 3600000).toISOString().startsWith(month)) &&
+    const result = photos.filter(photo => (!month || new Date((Number(photo.taken_at)||Number(photo.created_at)||0) + 8 * 3600000).toISOString().startsWith(month)) &&
       (!category || (category === 'unindexed' ? (config?.enabled ? config.pendingIds.includes(photo.id) : !photo.ai) : photo.ai?.category === category)) &&
       (rank ? rank.has(photo.id) : words.every(word => [photo.caption, ...(photo.captions||[]).map(item=>item.text), photo.ai?.description, ...(photo.ai?.tags || [])].join(' ').toLocaleLowerCase().includes(word))));
     if (rank) result.sort((a, b) => rank.get(a.id) - rank.get(b.id));

@@ -28,6 +28,7 @@ html = html.replace(/<a class="owner-login-link"[^>]*>.*?<\/a>/, '')
 if (!html.includes('id="entry-help"') || !html.includes('src="/entry.js"')) throw new Error('首次设置入口模板未正确生成。');
 await writeFile(resolve(output, 'public/index.html'), html);
 for (const name of ['app.js', 'entry.js', 'pet-view.js', 'features.js', 'room-helpers.js', 'album.js', 'exifr.js', 'style.css', 'favicon.svg', 'manifest.json', 'sw.js', 'icon-192.svg', 'icon-512.svg', 'icon-192.png', 'icon-512.png']) await cp(resolve(root, 'public', name), resolve(output, 'public', name));
+await cp(resolve(root, 'public', 'travel'), resolve(output, 'public', 'travel'), { recursive: true });
 await cp(resolve(root, 'drizzle'), resolve(output, 'drizzle'), { recursive: true });
 await cp(resolve(root, 'deploy/node'), resolve(output, 'deploy'), { recursive: true });
 await cp(resolve(root, 'deploy/node/environment.example'), resolve(output, '.env.example'));

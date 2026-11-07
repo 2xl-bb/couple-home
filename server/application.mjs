@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { isIP } from 'node:net';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { extname, relative, resolve } from 'node:path';
 import { openDatabase, localBucket } from './storage.mjs';
 import { requests } from './request-context.mjs';
 import { HomeError } from '../lib/home-domain.mjs';
@@ -39,6 +39,28 @@ export function contentSecurityPolicy(videoOrigin) {
     ? ` ${videoOrigin}` : '';
   return "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; " +
     `connect-src 'self' data:${media}; media-src 'self' blob:${media}; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`;
+}
+
+export function travelContentSecurityPolicy() {
+  return "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: blob: https://*.is.autonavi.com; connect-src 'self' https://zh.wikipedia.org https://nominatim.openstreetmap.org; " +
+    "worker-src 'self'; manifest-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+}
+
+const travelType={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'application/javascript; charset=utf-8','.json':'application/manifest+json; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.txt':'text/plain; charset=utf-8'};
+function travelAsset(root, pathname) {
+  const segment=pathname.slice('/travel/'.length)||'index.html';
+  if(!/^[\w.\-\/\u4e00-\u9fff]+$/u.test(segment))return null;
+  const directory=resolve(root,'public','travel'),path=resolve(directory,segment);
+  return relative(directory,path).startsWith('..')?null:[path,travelType[extname(path).toLowerCase()]||'application/octet-stream'];
+}
+
+async function readStaticFile(path) {
+  try { return await readFile(path); }
+  catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
 }
 
 function readBody(stream, limit) {
@@ -116,9 +138,21 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
         return response;
       }
       const asset = staticFiles.get(url.pathname);
+      if(url.pathname.startsWith('/travel/')){
+        const travel=travelAsset(root,url.pathname);
+        if(!travel)return jsonError('页面不存在。',404);
+        if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405,headers:{Allow:'GET, HEAD'}});
+        const content=await readStaticFile(travel[0]);
+        if(!content)return jsonError('页面不存在。',404);
+        return new Response(content,{headers:{'Content-Type':travel[1],'Cache-Control':url.pathname.endsWith('/sw.js')?'no-cache':'no-store','X-Couple-Travel-Asset':'1'}});
+      }
       if (!asset) return jsonError('页面不存在。', 404);
       if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });
-      if (!assets.has(url.pathname)) assets.set(url.pathname, await readFile(resolve(root, 'public', asset[0])));
+      if (!assets.has(url.pathname)) {
+        const content=await readStaticFile(resolve(root, 'public', asset[0]));
+        if(!content)return jsonError('页面不存在。',404);
+        assets.set(url.pathname,content);
+      }
       return new Response(assets.get(url.pathname), { headers: { 'Content-Type': asset[1], 'Cache-Control': url.pathname === '/sw.js' ? 'no-cache' : 'no-store' } });
     });
   }
@@ -166,14 +200,15 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
     } finally { if (counted) active--; }
 
     async function send(response) {
-      const headers = Object.fromEntries(response.headers);
+      const travelAsset=response.headers.get('X-Couple-Travel-Asset')==='1';
+      const headers = Object.fromEntries(response.headers);delete headers['x-couple-travel-asset'];
       const cookies = response.headers.getSetCookie();
       if (cookies.length) headers['set-cookie'] = cookies;
       if (response.status === 413) headers.Connection = 'close';
       Object.assign(headers, {
         'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin',
         'X-Frame-Options': 'DENY', 'Cross-Origin-Resource-Policy': 'same-origin',
-        'Content-Security-Policy': contentSecurityPolicy(env.VIDEO_STORE?.browserOrigin),
+        'Content-Security-Policy': travelAsset?travelContentSecurityPolicy():contentSecurityPolicy(env.VIDEO_STORE?.browserOrigin),
       });
       if (env.APP_ORIGIN.startsWith('https:')) headers['Strict-Transport-Security'] = 'max-age=31536000';
       outgoing.writeHead(response.status, headers);

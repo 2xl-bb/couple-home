@@ -55,7 +55,7 @@ window.LITTLE_DAYS_FEATURES_READY=true;renderTogether();
 (function setupRoomPages(){
  const titles={home:'小屋首页',stories:'我们的故事',album:'回忆相册',pet:'一起养宠',wishes:'心愿清单',letters:'悄悄话',together:'双人日常',corners:'彼此的小档案',book:'月度回忆册'};
  const main=document.querySelector('main');
- $('#room-picker').onchange=e=>{location.hash='/'+e.target.value};
+ $('#room-picker').onchange=e=>{if(e.target.value==='travel'){location.assign('/travel/');return}location.hash='/'+e.target.value};
  const roomNotes={home:'今天的心情与期待',stories:'收藏心动的瞬间',album:'留住一起看过的风景',pet:'陪小家伙待一会儿',wishes:'把下次一起写下来',letters:'说给最喜欢的人听',together:'问答、约会、日历与小券',corners:'记住彼此的小习惯',book:'把一个月好好珍藏'};
  $('#mobile-more').onclick=()=>{modal('小屋里的每个角落','<div class="room-menu">'+Object.entries(titles).map(([page,title])=>`<a href="#/${page}" ${page===current?'aria-current="page"':''}><strong>${title}</strong><small>${roomNotes[page]}</small></a>`).join('')+'</div>');$('#mobile-more').setAttribute('aria-expanded','true');document.querySelectorAll('.room-menu a').forEach(a=>a.onclick=event=>{if(!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey)close()})};
  $('#modal').addEventListener('close',()=>$('#mobile-more').setAttribute('aria-expanded','false'));

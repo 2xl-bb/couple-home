@@ -14,6 +14,7 @@ import * as backup from '../app/api/backup/route.ts';
 import * as restore from '../app/api/restore/route.ts';
 import * as photos from '../app/api/photos/route.ts';
 import * as photo from '../app/api/photos/[id]/route.ts';
+import * as photoCaption from '../app/api/photos/[id]/caption/route.ts';
 import * as albumAIRoutes from '../app/api/album-ai/route.ts';
 import * as albumSearch from '../app/api/album-search/route.ts';
 import * as videos from './video-routes.mjs';
@@ -101,8 +102,9 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
         if (!videoMatch[2] && request.method === 'DELETE') return videos.remove(request, videoMatch[1]);
         return new Response(null, { status: 405 });
       }
-      const match = /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})$/.exec(url.pathname);
-      const route = routes.get(url.pathname) || (match ? photo : null);
+      const captionMatch = /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})\/caption$/.exec(url.pathname);
+      const match = captionMatch || /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})$/.exec(url.pathname);
+      const route = routes.get(url.pathname) || (captionMatch ? photoCaption : match ? photo : null);
       if (route) {
         const handler = route[request.method];
         if (typeof handler !== 'function') return new Response(null, { status: 405, headers: { Allow: Object.keys(route).filter(x => /^[A-Z]+$/.test(x)).join(', ') } });

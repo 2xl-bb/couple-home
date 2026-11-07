@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { openPostgres, postgresSql } from '../server/postgres.mjs';
 
 const schemaPath = fileURLToPath(new URL('../deploy/render-supabase/schema.sql', import.meta.url));
+const migrationsPath = fileURLToPath(new URL('../deploy/render-supabase/migrations/', import.meta.url));
 const connectionString = 'postgresql://example:example@localhost:6543/postgres?sslmode=require';
 
 test('PostgreSQL translation preserves the existing photo write and deduplication conditions', () => {
@@ -37,6 +38,18 @@ test('PostgreSQL connection accepts Neon or Supabase poolers and requires TLS', 
     connectionString: 'postgresql://example:example@localhost:6543/postgres', schemaPath,
     poolFactory: Pool,
   }), /sslmode/);
+});
+
+test('PostgreSQL applies immutable incremental photo caption migrations',async()=>{
+  const statements=[];
+  class Pool{
+    async connect(){return{query:(sql,values)=>this.query(sql,values),release(){}}}
+    async query(sql,values){statements.push({sql,values});if(sql.startsWith('SELECT sha256 FROM couple_home_schema_migrations'))return{rows:[],fields:[]};return{command:'SELECT',rowCount:0,rows:[],fields:[]}}
+    async end(){}
+  }
+  const db=await openPostgres({connectionString,schemaPath,migrationsPath,poolFactory:Pool});await db.close();
+  assert.ok(statements.some(item=>item.sql.includes('CREATE TABLE photo_captions')));
+  assert.ok(statements.some(item=>item.sql.startsWith('INSERT INTO couple_home_schema_migrations')&&item.values?.[0]==='0002_photo_captions.sql'));
 });
 
 test('a failed room compare-and-swap rolls back its event claim', async () => {

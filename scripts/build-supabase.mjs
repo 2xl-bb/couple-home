@@ -39,6 +39,7 @@ for (const name of ['app.js', 'entry.js', 'pet-view.js', 'features.js', 'room-he
   await cp(resolve(root, 'public', name), resolve(output, 'public', name));
 }
 await cp(resolve(root, 'deploy/render-supabase/schema.sql'), resolve(output, 'schema.sql'));
+await cp(resolve(root, 'deploy/render-supabase/migrations'), resolve(output, 'migrations'), { recursive: true });
 await cp(resolve(root, 'drizzle'), resolve(output, 'drizzle'), { recursive: true });
 await cp(resolve(root, 'deploy/render-supabase/README.md'), resolve(output, 'README.md'));
 await writeFile(resolve(output, 'package.json'), JSON.stringify({

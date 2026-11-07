@@ -9,11 +9,11 @@
     const rank = matches ? new Map(matches.map((match, i) => [match.id, i])) : null;
     const result = photos.filter(photo => (!month || new Date(photo.created_at + 8 * 3600000).toISOString().startsWith(month)) &&
       (!category || (category === 'unindexed' ? (config?.enabled ? config.pendingIds.includes(photo.id) : !photo.ai) : photo.ai?.category === category)) &&
-      (rank ? rank.has(photo.id) : words.every(word => [photo.caption, photo.ai?.description, ...(photo.ai?.tags || [])].join(' ').toLocaleLowerCase().includes(word))));
+      (rank ? rank.has(photo.id) : words.every(word => [photo.caption, ...(photo.captions||[]).map(item=>item.text), photo.ai?.description, ...(photo.ai?.tags || [])].join(' ').toLocaleLowerCase().includes(word))));
     if (rank) result.sort((a, b) => rank.get(a.id) - rank.get(b.id));
     return result;
   }
-  function paint() { albumLimit = 12; renderAlbum(); loadPagesPhotos(); }
+  function paint() { if (typeof resetAlbumTimeline === 'function') resetAlbumTimeline(); renderAlbum(); loadPagesPhotos(); }
   function reset() {
     epoch++; searchVersion++; query = ''; category = ''; matches = null; searching = false;
     config = null; checking = false; checkedAt = 0; organizing = false;
@@ -36,10 +36,8 @@
     $('#album-organize').disabled = !config?.enabled || organizing;
     $('#album-ai-clear').hidden = !me?.canManagePasswords || !state.photos.some(photo => photo.ai);
     const organized = state.photos.filter(photo => photo.ai).length;
-    $('#album-ai-note').textContent = config?.enabled
-      ? `已整理 ${organized} / ${state.photos.length} 张。AI 整理发送你确认的照片，AI 搜索发送搜索文字至 ${config.provider}；可能产生服务费用。`
-      : '文字搜索和月份筛选直接可用。AI 整理与语义搜索为可选功能，需部署者配置服务后启用。';
-    $('#album-search-note').textContent = searching ? '正在找相近的回忆……' : matches ? `AI 找到 ${matches.length} 张相近照片，可继续按月份或分类筛选。` : query ? '正在按备注、描述和标签查找。' : '';
+    $('#album-ai-note').textContent = config?.enabled ? `AI ${organized}/${state.photos.length}` : '';
+    $('#album-search-note').textContent = searching ? '搜索中…' : matches ? `${matches.length}` : '';
     if (ready && !checking && Date.now() - checkedAt >= 60000) void check();
   }
   async function semantic() {

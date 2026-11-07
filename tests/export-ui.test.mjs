@@ -26,15 +26,15 @@ test('backup preview accepts up to 5000 photos and rejects 5001',()=>{
  backup.photos=Array(5001).fill({});c.importConfirm(backup);assert.equal(opened,2);assert.match(message,/备份内容不完整/);
 });
 test('a 201-photo backup can complete the merge after validation',async()=>{
- const code=source.slice(source.indexOf('function importConfirm('),source.indexOf('function importData()'));
- const nodes={'#confirm-import':{},'#cancel-import':{},'#restore-progress':{},'#modal':{dataset:{}}};let uploaded=0,merged=false,notice='';
+ const code=source.slice(source.indexOf('async function restorePhotoCaptions('),source.indexOf('function importData()'));
+ const nodes={'#confirm-import':{},'#cancel-import':{},'#restore-progress':{},'#modal':{dataset:{}}};let uploaded=0,merged=false,notice='',comments=0;
  const c=vm.createContext({revision:1,me:{},state:{photos:[]},modal(){},toast:x=>notice=x,esc:String,close(){},fetch,Blob,crypto,Date,Map,
-  $:s=>nodes[s]||null,uploadPhoto:async()=>({id:'uploaded-'+(++uploaded),existed:false}),mutate:async(kind,payload)=>{assert.equal(kind,'import');assert.equal(payload.data.photos.length,0);merged=true},refreshNow:async()=>{},checkMigration(){}});
- vm.runInContext(code,c);const backup={v:2,names:['A','B'],photos:Array.from({length:201},(_,i)=>({id:'fixture-'+i,data:'data:image/jpeg;base64,/9j/'})),stories:[],wishes:[],letters:[],anniversaries:[]};
- c.importConfirm(backup);await nodes['#confirm-import'].onclick();assert.equal(uploaded,201);assert.equal(merged,true);assert.match(notice,/回忆已合并/);
+  $:s=>nodes[s]||null,api:async(path,options)=>{comments++;assert.match(path,/\/caption$/);assert.equal(JSON.parse(options.body).text,'补充回忆')},uploadPhoto:async()=>({id:'uploaded-'+(++uploaded),existed:false}),mutate:async(kind,payload)=>{assert.equal(kind,'import');assert.equal(payload.data.photos.length,0);merged=true},refreshNow:async()=>{},checkMigration(){}});
+ vm.runInContext(code,c);const backup={v:2,names:['A','B'],photos:Array.from({length:201},(_,i)=>({id:'fixture-'+i,data:'data:image/jpeg;base64,/9j/',...(i===0?{captions:[{id:'caption-fixture',text:'补充回忆',createdAt:1}]}:{})})),stories:[],wishes:[],letters:[],anniversaries:[]};
+ c.importConfirm(backup);await nodes['#confirm-import'].onclick();assert.equal(uploaded,201);assert.equal(comments,1);assert.equal(merged,true);assert.match(notice,/回忆已合并/);
 });
 test('corrupt second photo fails validation before any photo is uploaded',async()=>{
- const code=source.slice(source.indexOf('function importConfirm('),source.indexOf('function importData()'));
+ const code=source.slice(source.indexOf('async function restorePhotoCaptions('),source.indexOf('function importData()'));
  const nodes={'#confirm-import':{},'#cancel-import':{},'#restore-progress':{},'#modal':{dataset:{}}};let uploaded=0,merged=false;
  const c=vm.createContext({revision:1,me:{},state:{photos:[]},modal(){},toast(){},esc:String,close(){},fetch,crypto,Date,Map,
   $:s=>nodes[s]||null,uploadPhoto:async()=>{uploaded++;return{id:'fixture',existed:false}},mutate:async()=>{merged=true},refreshNow:async()=>{},checkMigration(){}});
@@ -42,7 +42,7 @@ test('corrupt second photo fails validation before any photo is uploaded',async(
  c.importConfirm(backup);await nodes['#confirm-import'].onclick();assert.equal(uploaded,0);assert.equal(merged,false);assert.match(nodes['#restore-progress'].textContent,/照片/);
 });
 test('existing backup JPEG data URLs with media type parameters remain importable',async()=>{
- const code=source.slice(source.indexOf('function importConfirm('),source.indexOf('function importData()'));
+ const code=source.slice(source.indexOf('async function restorePhotoCaptions('),source.indexOf('function importData()'));
  const nodes={'#confirm-import':{},'#cancel-import':{},'#restore-progress':{},'#modal':{dataset:{}}};let uploaded=0,merged=false;
  const c=vm.createContext({revision:1,me:{},state:{photos:[]},modal(){},toast(){},esc:String,close(){},fetch,Blob,crypto,Date,Map,
   $:s=>nodes[s]||null,uploadPhoto:async blob=>{assert.equal(blob.type,'image/jpeg');uploaded++;return{id:'fixture',existed:false}},mutate:async()=>{merged=true},refreshNow:async()=>{},checkMigration(){}});

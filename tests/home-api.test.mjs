@@ -53,7 +53,12 @@ test('both members share photo uploads, bytes, deduplication and deletion',async
  const partnerPhoto=await get('/api/photos/'+p.id,'bob');assert.equal(partnerPhoto.status,200);assert.equal(partnerPhoto.headers.get('content-type'),'image/jpeg');assert.deepEqual(new Uint8Array(await partnerPhoto.arrayBuffer()),jpeg);const photo=await get('/api/photos/'+p.id,'alice');assert.equal(photo.status,200);
  assert.equal((await get('/api/photos/'+p.id)).status,401);
  const partnerList=(await(await get('/api/home','bob')).json()).state.photos;const list=(await(await get('/api/home','alice')).json()).state.photos;assert.deepEqual(partnerList.map(photo=>photo.id),list.map(photo=>photo.id));assert.equal(list.length,2);assert.ok(list.every(photo=>Number.isFinite(photo.created_at)&&photo.created_at>0));const stored=await db.prepare('SELECT created_at FROM photos WHERE id=?').bind(p.id).first();assert.equal(list.find(photo=>photo.id===p.id).created_at,stored.created_at);assert.equal(stored.created_at,originalDate);assert.equal((await upload(jpeg,originalDate+86400000)).status,200);assert.equal((await db.prepare('SELECT created_at FROM photos WHERE id=?').bind(p.id).first()).created_at,originalDate);
+ const append=await mf.dispatchFetch(origin+'/api/photos/'+p.id+'/caption',{method:'POST',headers:{...auth('bob'),Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({text:'后来又想起海风'})});assert.equal(append.status,201,await append.clone().text());const appended=await append.json();assert.equal(appended.authorSlot,2);
+ assert.equal((await mf.dispatchFetch(origin+'/api/photos/'+p.id+'/caption',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({text:'匿名留言'})})).status,401);
+ assert.equal((await mf.dispatchFetch(origin+'/api/photos/'+p.id+'/caption',{method:'POST',headers:{...auth('alice'),Origin:'https://evil.test','Content-Type':'application/json'},body:JSON.stringify({text:'跨站留言'})})).status,403);
+ const shared=(await(await get('/api/home','alice')).json()).state.photos.find(photo=>photo.id===p.id);assert.deepEqual(shared.captions.map(item=>item.text),['一起看海','后来又想起海风']);assert.equal(shared.captions[0].original,true);assert.equal(shared.captions[1].authorSlot,2);
  assert.equal((await mf.dispatchFetch(origin+'/api/photos/'+p.id,{method:'DELETE',headers:{...auth('bob'),Origin:origin}})).status,200);
+ assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM photo_captions WHERE photo_id=?').bind(p.id).first()).n,0);
  assert.equal((await get('/api/photos/'+p.id,'alice')).status,404);
 });
 

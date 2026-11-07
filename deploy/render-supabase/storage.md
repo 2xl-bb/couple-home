@@ -41,6 +41,25 @@ Local isolated check, without a Supabase account or real photo:
 node --test tests/supabase-storage.test.mjs
 ```
 
+Real-account connectivity check (loads the project-root `.env` and never prints
+the key):
+
+```sh
+node --use-env-proxy --env-file=.env scripts/check-supabase-storage.mjs
+```
+
+The command reports the project host, bucket name, key type, proxy state, HTTP
+status, and a redacted network error chain. Keep `--env-file=.env` before the
+script path so Node can read proxy variables before initializing its proxy
+agent. Omit `--use-env-proxy` on machines that connect directly without
+`HTTPS_PROXY`/`HTTP_PROXY`.
+
+On Windows, `--use-env-proxy` reads proxy environment variables; it does not
+automatically import the proxy configured in Internet Options. If direct TLS
+connections are reset, add a local-only line such as
+`HTTPS_PROXY=http://127.0.0.1:<current-port>` to the ignored `.env`. Never add a
+developer-machine proxy to Render environment variables or committed source.
+
 References: [Supabase API keys](https://supabase.com/docs/guides/getting-started/api-keys),
 [Storage API](https://supabase.com/docs/reference/self-hosting-storage),
 [private bucket access](https://supabase.com/docs/guides/storage/serving/downloads),

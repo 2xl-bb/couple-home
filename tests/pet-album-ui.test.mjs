@@ -54,12 +54,14 @@ test('sleep overrides actions, actions expire, and low states choose matching po
  assert.equal(view.motion({...pet,sleepingUntil:0,energy:80,happiness:25},now),'lonely');
 });
 
-test('album retains its add tile after the first and subsequent photos',()=>{
- const outputs={},nodes=new Map(),get=s=>{if(!nodes.has(s))nodes.set(s,{});return nodes.get(s)};
- const context=vm.createContext({state:{photos:[]},$:get,renderContent:(s,html)=>outputs[s]=html,esc:String,photoSource:id=>'/api/photos/'+id,Date});
- vm.runInContext(source.slice(source.indexOf("let albumMonth="),source.indexOf("$('#album-month').onchange=")),context);
- for(const count of [0,1,30]){context.state.photos=Array.from({length:count},(_,i)=>({id:'p'+i,created_at:now,caption:'回忆'}));context.renderAlbum();assert.match(outputs['#photo-list'],/data-upload/);assert.match(outputs['#photo-list'],/继续添加照片/);if(count)assert.match(outputs['#photo-list'],/has-photo/)}
- context.LittleDaysAlbum={filter:()=>[],renderTools(){}};context.renderAlbum();assert.match(get('#album-count').textContent,/没有符合当前搜索或筛选/);
+test('album renders a minimal grouped timeline and shared caption history',()=>{
+ const outputs={},nodes=new Map(),get=s=>{if(!nodes.has(s))nodes.set(s,{setAttribute(name,value){this[name]=value}});return nodes.get(s)};
+ const context=vm.createContext({state:{photos:[],names:['小月','小林']},$:get,renderContent:(s,html)=>outputs[s]=html,esc:String,photoSource:id=>'/api/photos/'+id,Date});
+ vm.runInContext(source.slice(source.indexOf("let albumMonth="),source.indexOf('function viewPhoto')),context);
+ context.renderAlbum();assert.match(outputs['#photo-list'],/class="album-empty"/);assert.match(outputs['#photo-list'],/data-upload/);
+ context.state.photos=Array.from({length:30},(_,i)=>({id:'p'+i,created_at:now-i,caption:'回忆'}));context.renderAlbum();assert.match(outputs['#photo-list'],/2026年/);assert.match(outputs['#photo-list'],/10月/);assert.equal((outputs['#photo-list'].match(/class="photo-item has-photo"/g)||[]).length,24);assert.match(outputs['#photo-list'],/data-more-album-month/);
+ context.state.photos=[{id:'shared',created_at:now,caption:'最初的文字',captions:[{id:'original',text:'最初的文字',createdAt:now,authorSlot:1,original:true},{id:'later-note',text:'后来补充的文字',createdAt:now+1000,authorSlot:2,original:false}]}];context.renderAlbum();assert.match(outputs['#photo-list'],/原配文 · 小月/);assert.match(outputs['#photo-list'],/补充 · 小林/);assert.match(outputs['#photo-list'],/后来补充的文字/);assert.match(outputs['#photo-list'],/data-add-photo-caption="shared"/);assert.match(outputs['#photo-list'],/class="photo-delete"/);
+ context.LittleDaysAlbum={filter:()=>[],renderTools(){}};context.renderAlbum();assert.equal(get('#album-count')['aria-label'],'没有符合当前搜索的照片');
 });
 
 function uploadFixture(){

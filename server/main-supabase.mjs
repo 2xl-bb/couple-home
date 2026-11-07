@@ -19,9 +19,17 @@ for (const name of ['DATABASE_URL', 'SUPABASE_URL', 'SETUP_CODE', 'R2_ACCOUNT_ID
   if (!process.env[name]) throw new Error(`缺少环境变量 ${name}。`);
 }
 const storageKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!storageKey) throw new Error('缺少环境变量 SUPABASE_SECRET_KEY。');
+if (!storageKey) throw new Error('缺少环境变量 SUPABASE_SECRET_KEY 或 SUPABASE_SERVICE_ROLE_KEY。');
 
-const db = await openPostgres({ connectionString: process.env.DATABASE_URL, schemaPath: resolve(root, 'schema.sql') });
+function logHealthFailure(label, error) {
+  const message = error instanceof Error ? error.message : String(error);
+  const status = Number.isInteger(error?.status) ? error.status : undefined;
+  const code = typeof error?.code === 'string' ? error.code : undefined;
+  console.error(`${label}：`, { message, status, code });
+  if (error instanceof Error && error.stack) console.error(error.stack);
+}
+
+const db = await openPostgres({ connectionString: process.env.DATABASE_URL, schemaPath: resolve(root, 'schema.sql'), migrationsPath: resolve(root, 'migrations') });
 let app;
 let videoStore;
 try {
@@ -30,7 +38,11 @@ try {
   videoStore = createR2VideoStore({ accountId: process.env.R2_ACCOUNT_ID,
     accessKeyId: process.env.R2_ACCESS_KEY_ID, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
     bucket: process.env.R2_BUCKET_NAME });
-  await bucket.health();
+  try { await bucket.health(); }
+  catch (error) {
+    logHealthFailure('Supabase Storage 健康检查失败', error);
+    throw error;
+  }
   await videoStore.health();
   app = createApplication({ root, origin, database: db, storage: createStorageAdapters({ photos: bucket, videos: videoStore }), entryFactory: createSupabaseEntry,
     setupCode: process.env.SETUP_CODE, albumAI: {

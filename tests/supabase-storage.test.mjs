@@ -103,7 +103,10 @@ test('configuration and transport errors do not disclose the secret key', async 
     fetchImpl: async () => { throw new Error(`internal detail ${SECRET}`); } });
   await assert.rejects(bucket.get(KEY), error => {
     assert.equal(error.message.includes(SECRET), false);
-    return /连接失败/.test(error.message);
+    assert.match(error.message, /连接失败.*internal detail \[REDACTED\]/);
+    assert.equal(error.code, 'SUPABASE_STORAGE_NETWORK_ERROR');
+    assert.match(error.stack, /SupabaseStorageError/);
+    return true;
   });
   const denied = createSupabaseBucket({ url: 'https://example.supabase.co', serviceKey: SECRET,
     fetchImpl: async () => new Response(`server detail ${SECRET}`, { status: 403 }) });
@@ -121,5 +124,22 @@ test('startup health check accepts only an existing private bucket', async () =>
   await assert.rejects(make({ id: 'couple-photos', public: true }).health(), /Private/);
   const missing = createSupabaseBucket({ url: 'https://example.supabase.co', serviceKey: SECRET,
     fetchImpl: async () => new Response(null, { status: 404 }) });
-  await assert.rejects(missing.health(), /HTTP 404/);
+  await assert.rejects(missing.health(), error => {
+    assert.match(error.message, /HTTP 404/);
+    assert.equal(error.status, 404);
+    assert.equal(error.code, 'SUPABASE_STORAGE_HTTP_ERROR');
+    return true;
+  });
+});
+
+test('transport diagnostics preserve nested network codes without exposing credentials', async () => {
+  const cause = Object.assign(new Error('connect ETIMEDOUT 203.0.113.1:443'), { code: 'ETIMEDOUT' });
+  const bucket = createSupabaseBucket({ url: 'https://example.supabase.co', serviceKey: SECRET,
+    fetchImpl: async () => { throw new TypeError('fetch failed', { cause }); } });
+  await assert.rejects(bucket.health(), error => {
+    assert.equal(error.code, 'ETIMEDOUT');
+    assert.match(error.message, /TypeError: fetch failed.*ETIMEDOUT.*203\.0\.113\.1:443/);
+    assert.equal(error.message.includes(SECRET), false);
+    return true;
+  });
 });

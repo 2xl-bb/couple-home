@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 // The application uses a small D1-shaped query interface. Keep SQLite-only SQL
 // changes explicit, so a new query cannot silently acquire different semantics.
@@ -88,9 +89,13 @@ async function inTransaction(pool, action) {
   } finally { client.release(); }
 }
 
-async function installSchema(pool, schemaPath) {
+async function installSchema(pool, schemaPath, migrationsPath) {
   const schema = await readFile(schemaPath, 'utf8');
   const digest = createHash('sha256').update(schema.replaceAll('\r\n', '\n')).digest('hex');
+  const migrations = migrationsPath ? await Promise.all((await readdir(migrationsPath)).filter(name=>name.endsWith('.sql')).sort().map(async name=>{
+    const sql=await readFile(resolve(migrationsPath,name),'utf8');
+    return {name,sql,digest:createHash('sha256').update(sql.replaceAll('\r\n','\n')).digest('hex')};
+  })) : [];
   await inTransaction(pool, async client => {
     // Two Render instances must not both initialize the schema concurrently.
     await client.query('SELECT pg_advisory_xact_lock(53734827235393821)');
@@ -112,10 +117,19 @@ async function installSchema(pool, schemaPath) {
     const prior = await client.query('SELECT sha256 FROM couple_home_schema_migrations WHERE name=$1', ['0001_initial']);
     if (prior.rows.length) {
       if (prior.rows[0].sha256 !== digest) throw new Error('PostgreSQL schema changed after deployment; add a new migration');
-      return;
+    } else {
+      await client.query(schema);
+      await client.query('INSERT INTO couple_home_schema_migrations (name,sha256) VALUES ($1,$2)', ['0001_initial', digest]);
     }
-    await client.query(schema);
-    await client.query('INSERT INTO couple_home_schema_migrations (name,sha256) VALUES ($1,$2)', ['0001_initial', digest]);
+    for(const migration of migrations){
+      const applied=await client.query('SELECT sha256 FROM couple_home_schema_migrations WHERE name=$1',[migration.name]);
+      if(applied.rows.length){
+        if(applied.rows[0].sha256!==migration.digest)throw new Error(`PostgreSQL migration changed after deployment: ${migration.name}`);
+        continue;
+      }
+      await client.query(migration.sql);
+      await client.query('INSERT INTO couple_home_schema_migrations (name,sha256) VALUES ($1,$2)',[migration.name,migration.digest]);
+    }
   });
 }
 
@@ -123,7 +137,7 @@ async function installSchema(pool, schemaPath) {
  * Open the durable database used by the Render deployment. The injected pool
  * factory permits isolated tests without a live Supabase account.
  */
-export async function openPostgres({ connectionString, schemaPath, poolFactory } = {}) {
+export async function openPostgres({ connectionString, schemaPath, migrationsPath, poolFactory } = {}) {
   if (!connectionString || !schemaPath) throw new Error('DATABASE_URL and PostgreSQL schema path are required');
   let url;
   try { url = new URL(connectionString); }
@@ -139,7 +153,7 @@ export async function openPostgres({ connectionString, schemaPath, poolFactory }
   const driver = poolFactory ? null : await import('pg');
   const Pool = poolFactory || driver.Pool || driver.default?.Pool;
   const pool = new Pool({ connectionString, max: 4, connectionTimeoutMillis: 10000, idleTimeoutMillis: 30000 });
-  try { await installSchema(pool, schemaPath); }
+  try { await installSchema(pool, schemaPath, migrationsPath); }
   catch (error) { await pool.end(); throw error; }
   const direct = queryInterface((text, values) => pool.query(text, values));
   return {

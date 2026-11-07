@@ -37,6 +37,33 @@ function keyHeaders(key) {
   throw new Error('无效的 Supabase 服务端密钥');
 }
 
+function safeDetail(error, secret) {
+  const seen = new Set();
+  const parts = [];
+  let current = error;
+  for (let depth = 0; current && depth < 4 && !seen.has(current); depth += 1) {
+    seen.add(current);
+    const name = typeof current.name === 'string' && current.name ? current.name : 'Error';
+    const message = typeof current.message === 'string' && current.message ? current.message : String(current);
+    const code = typeof current.code === 'string' && current.code ? ` [${current.code}]` : '';
+    parts.push(`${name}${code}: ${message}`);
+    current = current.cause;
+  }
+  const detail = parts.join(' <- ') || '未知网络错误';
+  return secret ? detail.split(secret).join('[REDACTED]') : detail;
+}
+
+function storageError(message, { status, statusText, code, cause } = {}) {
+  const suffix = Number.isInteger(status)
+    ? ` (HTTP ${status}${statusText ? ` ${statusText}` : ''})`
+    : '';
+  const error = new Error(message + suffix, cause ? { cause } : undefined);
+  error.name = 'SupabaseStorageError';
+  if (Number.isInteger(status)) error.status = status;
+  if (code) error.code = code;
+  return error;
+}
+
 export function createSupabaseBucket({ url, serviceKey, bucket = 'couple-photos', fetchImpl = fetch }) {
   const origin = projectOrigin(url);
   if (typeof bucket !== 'string' || !BUCKET_NAME.test(bucket)) {
@@ -56,26 +83,48 @@ export function createSupabaseBucket({ url, serviceKey, bucket = 'couple-photos'
         redirect: 'error',
         signal: AbortSignal.timeout(60000),
       });
-    } catch {
-      // In particular, never include a failed request's headers or response body.
-      throw new Error('Supabase 照片存储连接失败');
+    } catch (error) {
+      // Never include request headers or a response body. The nested transport
+      // reason is useful for distinguishing DNS, proxy, TLS and timeout errors,
+      // but any accidental occurrence of the server key is redacted first.
+      const detail = safeDetail(error, serviceKey);
+      const code = error?.cause?.code || error?.code || 'SUPABASE_STORAGE_NETWORK_ERROR';
+      throw storageError(`Supabase 照片存储连接失败：${detail}`, {
+        code,
+        cause: new Error(detail),
+      });
     }
     return response;
+  }
+
+  function failedResponse(message, response) {
+    throw storageError(message, {
+      status: response.status,
+      statusText: response.statusText,
+      code: 'SUPABASE_STORAGE_HTTP_ERROR',
+    });
   }
 
   async function get(key) {
     const response = await request(privateBase + objectKey(key), { method: 'GET' });
     if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`Supabase 照片读取失败 (HTTP ${response.status})`);
+    if (!response.ok) failedResponse('Supabase 照片读取失败', response);
     return { body: Buffer.from(await response.arrayBuffer()) };
   }
 
   return {
     async health() {
       const response = await request(`${origin}/storage/v1/bucket/${encodeURIComponent(bucket)}`, { method: 'GET' });
-      if (!response.ok) throw new Error(`Supabase 私有照片桶不可用 (HTTP ${response.status})`);
+      if (!response.ok) failedResponse('Supabase 私有照片桶不可用', response);
       let details;
-      try { details = await response.json(); } catch { throw new Error('Supabase 照片桶配置无法读取'); }
+      try { details = await response.json(); }
+      catch (error) {
+        throw storageError('Supabase 照片桶配置无法读取：响应不是有效 JSON', {
+          status: response.status,
+          code: 'SUPABASE_STORAGE_INVALID_RESPONSE',
+          cause: new Error(safeDetail(error, serviceKey)),
+        });
+      }
       if (details?.public !== false) throw new Error('Supabase 照片桶必须设置为 Private');
     },
     async put(key, bytes, options = {}) {
@@ -95,13 +144,13 @@ export function createSupabaseBucket({ url, serviceKey, bucket = 'couple-photos'
         const existing = await get(key);
         if (existing?.body.equals(body)) return;
       }
-      if (!response.ok) throw new Error(`Supabase 照片上传失败 (HTTP ${response.status})`);
+      if (!response.ok) failedResponse('Supabase 照片上传失败', response);
     },
     get,
     async delete(key) {
       const response = await request(objectBase + objectKey(key), { method: 'DELETE' });
       if (response.status === 404) return;
-      if (!response.ok) throw new Error(`Supabase 照片删除失败 (HTTP ${response.status})`);
+      if (!response.ok) failedResponse('Supabase 照片删除失败', response);
     },
   };
 }

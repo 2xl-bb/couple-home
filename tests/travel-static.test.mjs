@@ -18,6 +18,16 @@ test('travel footprint subsite has its own explicitly scoped PWA',async()=>{
   assert.match(page,/photo\.latitude/);assert.match(page,/photo\.longitude/);assert.match(page,/wgs2gcj\(group\.lat, group\.lng\)/);
   assert.match(page,/\/api\/photos\/' \+ encodeURIComponent\(photo\.id\)/);assert.match(page,/function groupHomePhotos/);
   assert.match(page,/homePhotosButton\.addEventListener\('click'/);assert.match(page,/loadHomePhotoMarkers\(\);/);
+  assert.match(page,/<button id="homeBtn"[^>]*>🏠 返回小屋<\/button>/);
+  assert.match(page,/#homeBtn \{ position:absolute;top:14px;left:14px;/);
+  assert.match(page,/getElementById\('homeBtn'\)\.addEventListener\('click', \(\) => \{ window\.location\.href = '\/'; \}\)/);
+  assert.match(page,/<input type="file" id="fpPhoto" accept="image\/\*" multiple>/);
+  assert.match(page,/function footprintPhotos\(fp\) \{[\s\S]*Array\.isArray\(fp\.photos\)[\s\S]*fp\.photo/);
+  assert.match(page,/files\.map\(async file => \{[\s\S]*downscale\(dataUrl, 800, 0\.8\)/);
+  assert.match(page,/photos: photoData/);
+  assert.match(page,/function makeMarker\(fp\) \{[\s\S]*footprintPhotos\(fp\)\.forEach/);
+  assert.match(page,/button\.addEventListener\('click', \(\) => openFootprintPhoto\(fp, index\)\)/);
+  assert.match(page,/footprints\.flatMap\(footprint => footprintPhotos\(footprint\)/);
   assert.match(worker,/CACHE_PREFIX = 'couple-home-travel-'/);
   assert.match(worker,/CACHE = CACHE_PREFIX \+ 'v3'/);
   assert.match(worker,/url\.pathname\.startsWith\('\/api\/'\)/);

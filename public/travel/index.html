@@ -33,6 +33,11 @@
   .serif { font-family: "STSong", "SimSun", "Noto Serif SC", serif; }
 
   #map { position: absolute; inset: 0; z-index: 1; }
+  #homeBtn { position:absolute;top:14px;left:14px;z-index:11;min-height:44px;padding:0 16px;border:1px solid rgba(232,223,208,.9);border-radius:24px;background:rgba(255,255,255,.94);color:var(--ink);font:600 14px/1 "PingFang SC","Microsoft YaHei",sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.12);cursor:pointer;backdrop-filter:blur(6px); }
+  #homeBtn:hover { background:var(--warm);color:#fff; }
+  body.dark #homeBtn { background:rgba(42,36,28,.94);color:#e8e0d2;border-color:#3a3228; }
+  body.dark #homeBtn:hover { background:var(--warm);color:#fff; }
+  @media (max-width:480px) { #homeBtn { top:12px;left:12px;min-height:42px;padding:0 13px;font-size:13px; } }
   /* 标记：发光圆点 */
   .fp-marker-wrap { background: transparent !important; border: none !important; }
   .fp-core { width: 15px; height: 15px; border-radius: 50%; position: absolute; top: 5px; left: 5px; animation: pulse 2.2s infinite; }
@@ -47,6 +52,11 @@
   .fp-label::before { display: none !important; }
 
   .fp-popup img { width: 100%; border-radius: 8px; margin: 6px 0; max-height: 160px; object-fit: cover; }
+  .fp-popup .fp-photo-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0; }
+  .fp-popup .fp-photo-grid button { padding:0;border:0;background:transparent;cursor:pointer;min-width:0; }
+  .fp-popup .fp-photo-grid img { display:block;width:100%;height:68px;margin:0;object-fit:cover;border-radius:6px; }
+  .fp-photo-preview { display:none;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px; }
+  .fp-photo-preview img { width:100%;height:72px;object-fit:cover;border-radius:8px; }
   .fp-popup .t { font-family:"STSong","SimSun",serif; font-size: 15px; font-weight: 600; }
   .fp-popup .d { color: var(--ink-soft); font-size: 12px; }
   .fp-popup .n { font-size: 13px; margin-top: 4px; }
@@ -99,7 +109,6 @@
   .panel .btn-row button { flex: 1; padding: 11px; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-family: inherit; }
   #saveBtn { background: var(--warm); color: #fff; }
   #cancelBtn { background: var(--line); color: var(--ink); }
-  #photoPreview { max-width: 100%; border-radius: 10px; margin-top: 8px; display: none; }
   .row2 { display: flex; gap: 10px; }
   .row2 > div { flex: 1; }
 
@@ -254,6 +263,7 @@
 
 <div id="map"></div>
 <div id="vignette"></div>
+<button id="homeBtn" type="button" aria-label="返回主站首页" title="返回主站首页">🏠 返回小屋</button>
 
 <div id="topbar">
   <span id="logo" title="点我 5 次有惊喜">⛰ 行舟记</span>
@@ -290,8 +300,8 @@
     <label>日期</label>
     <input type="date" id="fpDate">
     <label>照片</label>
-    <input type="file" id="fpPhoto" accept="image/*">
-    <img id="photoPreview" alt="预览">
+    <input type="file" id="fpPhoto" accept="image/*" multiple>
+    <div id="photoPreview" class="fp-photo-preview"></div>
     <label>此刻的感想（可选）</label>
     <textarea id="fpNote" placeholder="在这里，你想记住什么……"></textarea>
     <div class="btn-row">
@@ -382,6 +392,7 @@
 const map = L.map('map', { zoomControl: true }).setView([27.5, 111.5], 6);
 map.doubleClickZoom.disable();
 L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', { subdomains: '1234', attribution: '© 高德地图', maxZoom: 19, maxNativeZoom: 18 }).addTo(map);
+document.getElementById('homeBtn').addEventListener('click', () => { window.location.href = '/'; });
 const homePhotoLayer = L.layerGroup().addTo(map);
 let homePhotoCount = 0;
 const homePhotosButton = document.getElementById('homePhotosBtn');
@@ -437,6 +448,10 @@ function drawPath() {
 const MARKER_COLORS = ['#e8823c', '#e0a93c', '#e86a5c', '#d97a9a', '#8fa878', '#7a86c8', '#c07a9a', '#5aa897', '#d9a05c', '#b08968'];
 
 function esc(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function footprintPhotos(fp) {
+  if (Array.isArray(fp.photos)) return fp.photos.filter(photo => typeof photo === 'string' && photo);
+  return typeof fp.photo === 'string' && fp.photo ? [fp.photo] : [];
+}
 function groupHomePhotos(photos) {
   const groups = new Map();
   for (const photo of photos) {
@@ -534,11 +549,39 @@ function makeMarker(fp) {
   m.bindTooltip(fp.name, { permanent: true, direction: 'top', offset: [0, -12], className: 'fp-label' });
   const popup = document.createElement('div');
   popup.className = 'fp-popup';
-  popup.innerHTML = (fp.photo ? '<img src="' + fp.photo + '">' : '') +
-    '<div class="t">' + esc(fp.name) + '</div>' +
-    '<div class="d">📅 ' + esc(fp.date) + (fp.city ? ' · 📍' + esc(fp.city) : '') + '</div>' +
-    (fp.note ? '<div class="n">' + esc(fp.note) + '</div>' : '') +
-    '<div class="del" onclick="window.__del(\'' + fp.id + '\')">🗑 删除这个足迹</div>';
+  const photoGrid = document.createElement('div');
+  photoGrid.className = 'fp-photo-grid';
+  footprintPhotos(fp).forEach((photo, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('aria-label', '查看照片 ' + (index + 1));
+    const image = document.createElement('img');
+    image.src = photo;
+    image.alt = fp.name + ' 照片 ' + (index + 1);
+    button.append(image);
+    button.addEventListener('click', () => openFootprintPhoto(fp, index));
+    photoGrid.append(button);
+  });
+  if (photoGrid.childElementCount) popup.append(photoGrid);
+  const title = document.createElement('div');
+  title.className = 't';
+  title.textContent = fp.name;
+  popup.append(title);
+  const date = document.createElement('div');
+  date.className = 'd';
+  date.textContent = '📅 ' + fp.date + (fp.city ? ' · 📍' + fp.city : '');
+  popup.append(date);
+  if (fp.note) {
+    const note = document.createElement('div');
+    note.className = 'n';
+    note.textContent = fp.note;
+    popup.append(note);
+  }
+  const remove = document.createElement('div');
+  remove.className = 'del';
+  remove.textContent = '🗑 删除这个足迹';
+  remove.addEventListener('click', () => window.__del(fp.id));
+  popup.append(remove);
   m.bindPopup(popup);
   markers.set(fp.id, m);
 }
@@ -612,6 +655,7 @@ const fpPhoto = document.getElementById('fpPhoto');
 const fpNote = document.getElementById('fpNote');
 const photoPreview = document.getElementById('photoPreview');
 let photoData = '';
+let photoProcessing = false;
 
 addBtn.addEventListener('click', () => { addMode = true; hint.style.display = 'block'; toast('在地图上点一下，标记你去过的地方～'); });
 map.on('click', (e) => { if (addMode) { addMode = false; hint.style.display = 'none'; openAddForm(e.latlng.lat, e.latlng.lng); } else { sparkleAt(e.latlng); } });
@@ -624,8 +668,8 @@ locateBtn.addEventListener('click', () => {
 });
 function openAddForm(lat, lng) {
   pendingLatLng = { lat, lng };
-  fpName.value = ''; fpCity.value = ''; fpNote.value = ''; photoData = '';
-  fpPhoto.value = ''; photoPreview.style.display = 'none';
+  fpName.value = ''; fpCity.value = ''; fpNote.value = ''; photoData = [];
+  fpPhoto.value = ''; photoPreview.replaceChildren(); photoPreview.style.display = 'none';
   const today = new Date();
   fpDate.value = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
   addMask.classList.add('show');
@@ -651,18 +695,60 @@ async function reverseGeocode(lat, lng) {
     }
   } catch (e) {}
 }
-function downscale(dataUrl, maxW, quality) {
-  return new Promise(res => {
+function downscale(dataUrl, maxDimension, quality) {
+  return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => { let w = img.width, h = img.height; if (w > maxW) { h = h * maxW / w; w = maxW; } const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h); res(c.toDataURL('image/jpeg', quality)); };
-    img.onerror = () => res(dataUrl); img.src = dataUrl;
+    img.onload = () => {
+      const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => reject(new Error('照片无法解码或压缩，请换一张图片重试。'));
+    img.src = dataUrl;
   });
 }
-fpPhoto.addEventListener('change', () => {
-  const file = fpPhoto.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => downscale(reader.result, 1280, 0.8).then(data => { photoData = data; photoPreview.src = data; photoPreview.style.display = 'block'; });
-  reader.readAsDataURL(file);
+function readAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('照片读取失败'));
+    reader.readAsDataURL(file);
+  });
+}
+function renderPhotoPreview() {
+  photoPreview.replaceChildren();
+  photoData.forEach((photo, index) => {
+    const image = document.createElement('img');
+    image.src = photo;
+    image.alt = '照片预览 ' + (index + 1);
+    photoPreview.append(image);
+  });
+  photoPreview.style.display = photoData.length ? 'grid' : 'none';
+}
+fpPhoto.addEventListener('change', async () => {
+  const files = Array.from(fpPhoto.files || []);
+  if (!files.length) { photoData = []; renderPhotoPreview(); return; }
+  photoProcessing = true;
+  fpPhoto.disabled = true;
+  document.getElementById('saveBtn').disabled = true;
+  try {
+    photoData = await Promise.all(files.map(async file => {
+      const dataUrl = await readAsDataURL(file);
+      return downscale(dataUrl, 800, 0.8);
+    }));
+    renderPhotoPreview();
+    toast('已处理 ' + photoData.length + ' 张照片');
+  } catch (error) {
+    photoData = [];
+    renderPhotoPreview();
+    toast(error.message || '照片读取失败，请重试。');
+  } finally {
+    photoProcessing = false;
+    fpPhoto.disabled = false;
+    document.getElementById('saveBtn').disabled = false;
+  }
 });
 
 // 秘密词彩蛋：在感想里写出这些词会触发
@@ -680,10 +766,11 @@ document.getElementById('cancelBtn').addEventListener('click', () => { addMask.c
 addMask.addEventListener('click', (e) => { if (e.target === addMask) { addMask.classList.remove('show'); pendingLatLng = null; } });
 
 document.getElementById('saveBtn').addEventListener('click', async () => {
+  if (photoProcessing) { toast('请等待照片处理完成。'); return; }
   if (!pendingLatLng) return;
   if (!fpName.value.trim()) { toast('给它起个名字吧～'); return; }
   const color = MARKER_COLORS[footprints.length % MARKER_COLORS.length];
-  const fp = { id: 'fp-' + Date.now(), lat: pendingLatLng.lat, lng: pendingLatLng.lng, name: fpName.value.trim(), city: fpCity.value.trim(), date: fpDate.value || '', note: fpNote.value.trim(), photo: photoData, color: color, createdAt: Date.now() };
+  const fp = { id: 'fp-' + Date.now(), lat: pendingLatLng.lat, lng: pendingLatLng.lng, name: fpName.value.trim(), city: fpCity.value.trim(), date: fpDate.value || '', note: fpNote.value.trim(), photos: photoData, color: color, createdAt: Date.now() };
   await dbAdd(fp);
   footprints.push(fp);
   makeMarker(fp);
@@ -703,8 +790,8 @@ const ACHIEVEMENTS = [
   { id:'twenty', icon:'🌠', name:'追光者', desc:'点亮 20 个足迹', ok: f => f.length >= 20 },
   { id:'fifty', icon:'🌊', name:'天涯旅人', desc:'点亮 50 个足迹', ok: f => f.length >= 50 },
   { id:'hundred', icon:'☀️', name:'此心光明', desc:'点亮 100 个足迹', ok: f => f.length >= 100 },
-  { id:'photo1', icon:'📷', name:'记录者', desc:'留下第一张照片', ok: f => f.filter(x=>x.photo).length >= 1 },
-  { id:'photo5', icon:'📸', name:'摄影家', desc:'留下 5 张照片', ok: f => f.filter(x=>x.photo).length >= 5 },
+  { id:'photo1', icon:'📷', name:'记录者', desc:'留下第一张照片', ok: f => f.reduce((n,x)=>n+footprintPhotos(x).length,0) >= 1 },
+  { id:'photo5', icon:'📸', name:'摄影家', desc:'留下 5 张照片', ok: f => f.reduce((n,x)=>n+footprintPhotos(x).length,0) >= 5 },
   { id:'writer', icon:'✍️', name:'写作者', desc:'写下第一段感想', ok: f => f.filter(x=>x.note).length >= 1 },
   { id:'city3', icon:'🏙️', name:'城市旅人', desc:'点亮 3 个不同城市', ok: f => new Set(f.map(x=>x.city).filter(Boolean)).size >= 3 },
   { id:'home', icon:'🏠', name:'归人', desc:'在家乡（湖南）点亮', ok: f => f.some(x=>Math.abs(x.lat-28.2)<0.8 && Math.abs(x.lng-111.9)<0.8) },
@@ -768,7 +855,7 @@ function renderList() {
   const box = document.getElementById('fpList');
   if (footprints.length === 0) { box.innerHTML = '<div class="fp-empty">还没有足迹呢～<br>点右下角的 ＋ 按钮，<br>点亮你的第一个地方吧 ✨</div>'; return; }
   const cities = new Set(footprints.map(f => f.city).filter(Boolean)).size;
-  const photos = footprints.filter(f => f.photo).length;
+  const photos = footprints.reduce((n, f) => n + footprintPhotos(f).length, 0);
   const stats = '<div class="fp-stats"><div class="stat"><div class="n">' + footprints.length + '</div><div class="k">足迹</div></div><div class="stat"><div class="n">' + cities + '</div><div class="k">城市</div></div><div class="stat"><div class="n">' + photos + '</div><div class="k">照片</div></div></div>';
   const sorted = [...footprints].sort((a,b) => b.createdAt - a.createdAt);
   const groups = {};
@@ -776,7 +863,8 @@ function renderList() {
   box.innerHTML = stats + Object.keys(groups).map(city =>
     '<div class="city-group"><div class="city-name">📍 ' + esc(city) + '</div>' +
     groups[city].map(f => {
-      const img = f.photo ? '<img src="' + f.photo + '">' : '<img src="data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><rect fill=%22%23e8dfd0%22 width=%2260%22 height=%2260%22/><text x=%2230%22 y=%2236%22 text-anchor=%22middle%22 font-size=%2222%22>📍</text></svg>">';
+      const photos = footprintPhotos(f);
+      const img = photos.length ? '<img src="' + esc(photos[0]) + '">' : '<img src="data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><rect fill=%22%23e8dfd0%22 width=%2260%22 height=%2260%22/><text x=%2230%22 y=%2236%22 text-anchor=%22middle%22 font-size=%2222%22>📍</text></svg>">';
       return '<div class="fp-card">' + img + '<div class="info"><div class="t">' + esc(f.name) + '</div><div class="d">📅 ' + esc(f.date) + ' · ' + daysAgo(f.createdAt) + '</div>' + (f.note ? '<div class="n">' + esc(f.note) + '</div>' : '') + '</div><span class="del" onclick="window.__del(\'' + f.id + '\')">删除</span></div>';
     }).join('') + '</div>'
   ).join('');
@@ -788,19 +876,24 @@ document.getElementById('albumBtn').addEventListener('click', () => { renderAlbu
 document.getElementById('albumClose').addEventListener('click', () => albumMask.classList.remove('show'));
 albumMask.addEventListener('click', (e) => { if (e.target === albumMask) albumMask.classList.remove('show'); });
 function renderAlbum() {
-  const photos = footprints.filter(f => f.photo);
+  const photos = footprints.flatMap(footprint => footprintPhotos(footprint).map(photo => ({footprint, photo})));
   if (photos.length === 0) { document.getElementById('albumGrid').innerHTML = '<div class="fp-empty" style="grid-column:1/-1">还没有照片呢～<br>先去点亮一个带照片的地方吧 📷</div>'; return; }
-  const sorted = [...photos].sort((a,b) => b.createdAt - a.createdAt);
-  document.getElementById('albumGrid').innerHTML = sorted.map((f, i) => '<div class="al-photo" onclick="window.__view(' + i + ')"><img src="' + f.photo + '"><div class="al-cap">' + esc(f.name) + '</div></div>').join('');
+  const sorted = photos.sort((a,b) => b.footprint.createdAt - a.footprint.createdAt);
+  document.getElementById('albumGrid').innerHTML = sorted.map((entry, i) => '<div class="al-photo" onclick="window.__view(' + i + ')"><img src="' + esc(entry.photo) + '"><div class="al-cap">' + esc(entry.footprint.name) + '</div></div>').join('');
 }
 window.__view = function(i) {
-  const photos = footprints.filter(f => f.photo).sort((a,b) => b.createdAt - a.createdAt);
-  const f = photos[i]; if (!f) return;
-  document.getElementById('lightImg').src = f.photo;
-  document.getElementById('lightTitle').textContent = f.name;
-  document.getElementById('lightSub').textContent = (f.city ? '📍' + f.city + ' · ' : '') + '📅' + f.date + (f.note ? ' · ' + f.note : '');
-  document.getElementById('lightbox').classList.add('show');
+  const photos = footprints.flatMap(footprint => footprintPhotos(footprint).map(photo => ({footprint, photo}))).sort((a,b) => b.footprint.createdAt - a.footprint.createdAt);
+  const entry = photos[i]; if (!entry) return;
+  openFootprintPhoto(entry.footprint, footprintPhotos(entry.footprint).indexOf(entry.photo));
 };
+function openFootprintPhoto(fp, index) {
+  const photo = footprintPhotos(fp)[index];
+  if (!photo) return;
+  document.getElementById('lightImg').src = photo;
+  document.getElementById('lightTitle').textContent = fp.name;
+  document.getElementById('lightSub').textContent = (fp.city ? '📍' + fp.city + ' · ' : '') + '📅' + fp.date + (fp.note ? ' · ' + fp.note : '');
+  document.getElementById('lightbox').classList.add('show');
+}
 document.getElementById('lightbox').addEventListener('click', (e) => { if (e.target === document.getElementById('lightbox')) e.currentTarget.classList.remove('show'); });
 
 // ================= 海报 =================
@@ -857,7 +950,7 @@ statMask.addEventListener('click', (e) => { if (e.target === statMask) statMask.
 function renderStats() {
   const total = footprints.length;
   const cities = new Set(footprints.map(f => f.city).filter(Boolean)).size;
-  const photos = footprints.filter(f => f.photo).length;
+  const photos = footprints.reduce((n, f) => n + footprintPhotos(f).length, 0);
   const notes = footprints.filter(f => f.note).length;
   document.getElementById('statSummary').innerHTML =
     '<div class="fp-stats">' +

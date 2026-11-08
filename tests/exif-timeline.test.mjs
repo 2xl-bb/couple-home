@@ -33,6 +33,18 @@ test('exifr reads an old DateTimeOriginal fixture',async()=>{
   assert.equal(metadata.DateTimeOriginal.getMonth(),2);
 });
 
+test('compressPhoto downsizes images to 1600px and encodes JPEG at 0.82',async()=>{
+  const source=await readFile('public/app.js','utf8'),code=source.slice(source.indexOf('async function compressPhoto'),source.indexOf('async function extractPhotoMeta'));
+  let encoded,revoked=false;
+  class Image{constructor(){this.width=3200;this.height=2000}async decode(){}set src(value){this.source=value}}
+  const canvas={getContext:()=>({fillRect(){},drawImage(){}}),toBlob(callback,type,quality){encoded={type,quality,width:this.width,height:this.height};callback(new Blob(['jpeg'],{type}))}};
+  const context=vm.createContext({Image,URL:{createObjectURL:()=> 'blob:photo',revokeObjectURL:()=>{revoked=true}},document:{createElement:()=>canvas},Promise,Error});
+  vm.runInContext(code,context);
+  const output=await context.compressPhoto({type:'image/png',size:1024});
+  assert.equal(encoded.type,'image/jpeg');assert.equal(encoded.quality,.82);assert.equal(encoded.width,1600);assert.equal(encoded.height,1000);
+  assert.equal(output.type,'image/jpeg');assert.equal(revoked,true);
+});
+
 test('exifr parses GPS coordinates when the GPS parser is enabled',async()=>{
   const metadata=await exifr.parse(new Uint8Array(gpsJpeg()),{gps:true,exif:true,tiff:true});
   assert.ok(Math.abs(metadata.latitude-31.2304)<1e-10);

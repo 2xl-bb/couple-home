@@ -198,6 +198,18 @@ document.querySelectorAll('[data-mood]').forEach(b=>b.onclick=async()=>{if(!need
 $('#random-date').onclick=()=>{if(!needReady())return;location.hash='/together'};
 $('#wish-form').onsubmit=async e=>{e.preventDefault();if(!needReady())return;const text=$('#wish-input').value.trim();if(!text)return;const btn=e.submitter;btn.disabled=true;try{await mutate('wish.add',{id:uid(),text});$('#wish-input').value='';toast('又多了一个一起期待的以后')}catch(err){toast(err.message)}finally{btn.disabled=false}};
 $('#add-letter').onclick=()=>{if(!needReady())return;modal('写给最喜欢的那个人');form(field('署名','author','text',state.names[(me?.slot||1)-1],'required maxlength="20"')+'<label class="form-field">想说的话<textarea name="text" required maxlength="3000" placeholder="亲爱的，今天想对你说……"></textarea></label>'+field('约定打开日期（可选）','openDate','date','',`min="${today()}"`)+'<p class="form-help">未来信的正文会在云端收好，到了约定日期再一起打开。日期按北京时间计算。</p>',async d=>{await mutate('letter.add',{...Object.fromEntries(d),id:uid()});close();toast('你的心意，已经在小屋里收好了 ♡')},'letter')};
+async function compressPhoto(file){
+ if(!file.type.startsWith('image/')||file.size>20*1024*1024)throw new Error('请选择 20MB 以内的可读取图片。');
+ const url=URL.createObjectURL(file);
+ try{
+  const img=new Image();img.src=url;await img.decode();
+  const scale=Math.min(1,1600/Math.max(img.width,img.height)),width=Math.round(img.width*scale),height=Math.round(img.height*scale);
+  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+  const context=canvas.getContext('2d');if(!context)throw new Error('图片暂时无法处理。');
+  context.fillStyle='#fff';context.fillRect(0,0,width,height);context.drawImage(img,0,0,width,height);
+  return await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('图片暂时无法处理。')),'image/jpeg',.82));
+ }finally{URL.revokeObjectURL(url)}
+}
 async function extractPhotoMeta(file, now = Date.now()) {
   let takenAt = now, lat = null, lng = null;
   const type = String(file?.type || '').toLowerCase();

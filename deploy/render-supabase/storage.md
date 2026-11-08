@@ -35,6 +35,11 @@ metadata and database rows still need to be kept consistent by the caller.
 Deleting an object through the Storage API removes its stored bytes; deleting
 only the `storage.objects` database row does not.
 
+行舟记足迹照片不使用这个 Supabase 桶。它们由服务端写入同一私有 Cloudflare
+R2 桶作为视频对象，通过 `/api/travel/footprints/:id/photos/:photoId` 的
+成员鉴权接口读取；数据库只保存这些同源 API URL。R2 对象使用独立的
+`travel/` 键空间，不会与 `videos/` 对象混淆。
+
 Local isolated check, without a Supabase account or real photo:
 
 ```sh

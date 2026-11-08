@@ -33,11 +33,10 @@
   .serif { font-family: "STSong", "SimSun", "Noto Serif SC", serif; }
 
   #map { position: absolute; inset: 0; z-index: 1; }
-  #homeBtn { position:absolute;top:14px;left:14px;z-index:11;min-height:44px;padding:0 16px;border:1px solid rgba(232,223,208,.9);border-radius:24px;background:rgba(255,255,255,.94);color:var(--ink);font:600 14px/1 "PingFang SC","Microsoft YaHei",sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.12);cursor:pointer;backdrop-filter:blur(6px); }
+  #homeBtn { position:static;flex:0 0 auto;min-height:36px;padding:0 12px;border:1px solid rgba(232,223,208,.9);border-radius:20px;background:var(--paper);color:var(--ink);font:600 13px/1 "PingFang SC","Microsoft YaHei",sans-serif;cursor:pointer; }
   #homeBtn:hover { background:var(--warm);color:#fff; }
-  body.dark #homeBtn { background:rgba(42,36,28,.94);color:#e8e0d2;border-color:#3a3228; }
+  body.dark #homeBtn { background:#2a241c;color:#e8e0d2;border-color:#3a3228; }
   body.dark #homeBtn:hover { background:var(--warm);color:#fff; }
-  @media (max-width:480px) { #homeBtn { top:12px;left:12px;min-height:42px;padding:0 13px;font-size:13px; } }
   /* 标记：发光圆点 */
   .fp-marker-wrap { background: transparent !important; border: none !important; }
   .fp-core { width: 15px; height: 15px; border-radius: 50%; position: absolute; top: 5px; left: 5px; animation: pulse 2.2s infinite; }
@@ -71,10 +70,15 @@
   .home-photo-popup img { display:block;width:100%;height:68px;object-fit:cover;border-radius:6px;background:var(--line); }
   .home-photo-popup small { display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-soft);font-size:10px; }
 
-  #topbar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.92); backdrop-filter: blur(6px); padding: 8px 10px 8px 16px; border-radius: 30px; box-shadow: 0 4px 16px rgba(0,0,0,.08); max-width: 96vw; overflow-x: auto; }
+  #topbar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.92); backdrop-filter: blur(6px); padding: 8px 10px 8px 16px; border-radius: 30px; max-width: 96vw; overflow-x: auto; -ms-overflow-style: none; scrollbar-width: none; }
+  #topbar::-webkit-scrollbar { display:none; }
   #logo { font-family:"STSong","SimSun",serif; font-size: 18px; font-weight: 700; letter-spacing: 2px; cursor: pointer; user-select: none; white-space: nowrap; }
   #topbar button { border: none; background: var(--paper); color: var(--ink); padding: 7px 11px; border-radius: 20px; cursor: pointer; font-size: 13px; font-family: inherit; white-space: nowrap; }
   #topbar button:hover { background: var(--warm); color: #fff; }
+  @media (max-width:768px) {
+    #topbar { top:12px;left:12px;transform:none;width:calc(100vw - 24px);max-width:none;gap:6px;padding:7px 12px;overflow-x:auto;overflow-y:hidden;white-space:nowrap;touch-action:pan-x;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch; }
+    #topbar > * { flex:0 0 auto; }
+  }
 
   #addBtn { position: absolute; right: 22px; bottom: 30px; z-index: 10; width: 58px; height: 58px; border-radius: 50%; border: none; background: var(--warm); color: #fff; font-size: 30px; line-height: 1; cursor: pointer; box-shadow: 0 6px 20px rgba(232,130,60,.45); }
   #addBtn:hover { background: #d8732e; transform: scale(1.06); }
@@ -263,9 +267,8 @@
 
 <div id="map"></div>
 <div id="vignette"></div>
-<button id="homeBtn" type="button" aria-label="返回主站首页" title="返回主站首页">🏠 返回小屋</button>
-
 <div id="topbar">
+  <button id="homeBtn" type="button" aria-label="返回主站首页" title="返回主站首页">🏠 返回小屋</button>
   <span id="logo" title="点我 5 次有惊喜">⛰ 行舟记</span>
   <button id="listBtn">📋 足迹本</button>
   <button id="albumBtn">📷 相册</button>
@@ -424,6 +427,49 @@ function initDB() { return new Promise((res, rej) => { const r = indexedDB.open(
 function dbAdd(fp) { return new Promise((res, rej) => { const tx = db.transaction('footprints','readwrite'); tx.objectStore('footprints').put(fp); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
 function dbAll() { return new Promise((res, rej) => { const tx = db.transaction('footprints','readonly'); const rq = tx.objectStore('footprints').getAll(); rq.onsuccess = () => res(rq.result); rq.onerror = () => rej(rq.error); }); }
 function dbDel(id) { return new Promise((res, rej) => { const tx = db.transaction('footprints','readwrite'); tx.objectStore('footprints').delete(id); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
+let travelSyncInFlight = false;
+async function syncTravelFootprints() {
+  if (travelSyncInFlight) return;
+  travelSyncInFlight = true;
+  try {
+    const response = await fetch('/api/travel/footprints', {credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
+    if (response.status === 401 || response.status === 403) return;
+    if (!response.ok) throw new Error('云端足迹暂时无法读取（HTTP ' + response.status + '）。');
+    const data = await response.json();
+    if (!Array.isArray(data.footprints)) throw new Error('云端返回的足迹数据格式无效。');
+    const synced = new Map(data.footprints.map(fp => [fp.id, {...fp, synced:true}]));
+    let migrationFailed = false;
+    for (const local of await dbAll()) {
+      if (synced.has(local.id) || local.synced) continue;
+      try {
+        const saved = await fetch('/api/travel/footprints', {
+          method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({...local,photos:footprintPhotos(local)})
+        });
+        const result = await saved.json();
+        if (!saved.ok || !result.footprint) throw new Error(result.error || '旧足迹迁移失败。');
+        synced.set(result.footprint.id, {...result.footprint, synced:true});
+      } catch (error) {
+        migrationFailed = true;
+        synced.set(local.id, {...local, synced:false});
+        console.error('迁移本地行舟记足迹失败：', error instanceof Error ? error.message : 'unknown');
+      }
+    }
+    footprints = [...synced.values()].sort((a,b) => a.createdAt - b.createdAt);
+    await Promise.all(footprints.map(dbAdd));
+    markers.forEach(marker => map.removeLayer(marker));
+    markers.clear();
+    footprints.forEach(makeMarker);
+    drawPath();
+    renderList(); renderAlbum(); updateSplashCount();
+    if (migrationFailed) toast('部分旧足迹暂未同步，仍保留在此设备；请检查网络后重试。', 3600);
+  } catch (error) {
+    console.error('同步行舟记足迹失败：', error instanceof Error ? error.message : 'unknown');
+    toast(error instanceof Error ? error.message : '云端足迹暂时无法同步。');
+  } finally {
+    travelSyncInFlight = false;
+  }
+}
 
 // ================= 状态 =================
 let footprints = [];
@@ -587,6 +633,22 @@ function makeMarker(fp) {
 }
 window.__del = async function(id) {
   if (!confirm('确定删除这个足迹吗？')) return;
+  const footprint = footprints.find(item => item.id === id);
+  if (footprint?.synced) {
+    try {
+      const response = await fetch('/api/travel/footprints/' + encodeURIComponent(id), {
+        method:'DELETE',credentials:'same-origin',headers:{'Content-Type':'application/json'}
+      });
+      if (!response.ok && response.status !== 404) {
+        const result = await response.json();
+        throw new Error(result.error || '云端删除足迹失败。');
+      }
+      if (response.ok && (await response.json()).cleanupPending) toast('足迹已删除，但有照片暂时未能从云端清理。', 3600);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : '云端删除足迹失败，暂未移除本地记录。');
+      return;
+    }
+  }
   await dbDel(id);
   if (markers.has(id)) { map.removeLayer(markers.get(id)); markers.delete(id); }
   footprints = footprints.filter(f => f.id !== id);
@@ -654,7 +716,7 @@ const fpDate = document.getElementById('fpDate');
 const fpPhoto = document.getElementById('fpPhoto');
 const fpNote = document.getElementById('fpNote');
 const photoPreview = document.getElementById('photoPreview');
-let photoData = '';
+let photoData = [];
 let photoProcessing = false;
 
 addBtn.addEventListener('click', () => { addMode = true; hint.style.display = 'block'; toast('在地图上点一下，标记你去过的地方～'); });
@@ -770,7 +832,22 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   if (!pendingLatLng) return;
   if (!fpName.value.trim()) { toast('给它起个名字吧～'); return; }
   const color = MARKER_COLORS[footprints.length % MARKER_COLORS.length];
-  const fp = { id: 'fp-' + Date.now(), lat: pendingLatLng.lat, lng: pendingLatLng.lng, name: fpName.value.trim(), city: fpCity.value.trim(), date: fpDate.value || '', note: fpNote.value.trim(), photos: photoData, color: color, createdAt: Date.now() };
+  let fp = { id: 'fp-' + Date.now(), lat: pendingLatLng.lat, lng: pendingLatLng.lng, name: fpName.value.trim(), city: fpCity.value.trim(), date: fpDate.value || '', note: fpNote.value.trim(), photos: photoData, color: color, createdAt: Date.now(), synced:false };
+  const saveButton = document.getElementById('saveBtn');
+  saveButton.disabled = true;
+  try {
+    const response = await fetch('/api/travel/footprints', {
+      method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(fp)
+    });
+    const result = await response.json();
+    if (!response.ok || !result.footprint) throw new Error(result.error || '云端保存足迹失败。');
+    fp = {...result.footprint, synced:true};
+  } catch (error) {
+    toast((error instanceof Error ? error.message : '云端保存失败。') + '，已暂存在此设备，联网后会自动同步。', 4200);
+  } finally {
+    saveButton.disabled = false;
+  }
   await dbAdd(fp);
   footprints.push(fp);
   makeMarker(fp);
@@ -1270,6 +1347,9 @@ function buildGuide(p) {
   updateSplashCount();
   checkAchievements();
   loadHomePhotoMarkers();
+  syncTravelFootprints();
+  setInterval(syncTravelFootprints, 30000);
+  window.addEventListener('focus', syncTravelFootprints);
   const greet = timeGreeting();
   if (footprints.length === 0) { setTimeout(() => toast(greet + '｜点右下角 ＋ 点亮第一个地方 👣', 3600), 800); }
   else { setTimeout(() => toast(greet + '｜你已点亮 ' + footprints.length + ' 处人间 ✨', 3000), 600); }

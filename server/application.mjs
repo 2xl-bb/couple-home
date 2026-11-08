@@ -13,6 +13,9 @@ import * as recovery from '../app/api/recovery/route.ts';
 import * as backup from '../app/api/backup/route.ts';
 import * as restore from '../app/api/restore/route.ts';
 import * as photos from '../app/api/photos/route.ts';
+import * as travelFootprints from '../app/api/travel/footprints/route.ts';
+import * as travelFootprint from '../app/api/travel/footprints/[id]/route.ts';
+import * as travelFootprintPhoto from '../app/api/travel/footprints/[id]/photos/[photoId]/route.ts';
 import * as photo from '../app/api/photos/[id]/route.ts';
 import * as photoCaption from '../app/api/photos/[id]/caption/route.ts';
 import * as photoDate from '../app/api/photos/[id]/date/route.ts';
@@ -21,7 +24,8 @@ import * as albumSearch from '../app/api/album-search/route.ts';
 import * as videos from './video-routes.mjs';
 
 const routes = new Map([['/api/home', home], ['/api/auth', auth], ['/api/passwords', passwords],
-  ['/api/recovery', recovery], ['/api/backup', backup], ['/api/restore', restore], ['/api/photos', photos], ['/api/album-ai', albumAIRoutes], ['/api/album-search', albumSearch]]);
+  ['/api/recovery', recovery], ['/api/backup', backup], ['/api/restore', restore], ['/api/photos', photos], ['/api/album-ai', albumAIRoutes], ['/api/album-search', albumSearch],
+  ['/api/travel/footprints', travelFootprints]]);
 const staticFiles = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/pet-view.js', ['pet-view.js', 'text/javascript; charset=utf-8']], ['/features.js', ['features.js', 'text/javascript; charset=utf-8']], ['/room-helpers.js', ['room-helpers.js', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']], ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
@@ -91,7 +95,14 @@ export function validateOrigin(value) {
 export function createApplication({ root, dataDir, origin, trustProxy = false, setupCode, albumAI = {}, database, bucket, videoStore, storage, entryFactory }) {
   validateOrigin(origin);
   const db = database || openDatabase(dataDir, resolve(root, 'drizzle'));
-  const env = { DB: db, BUCKET: storage?.photos || bucket || localBucket(dataDir), VIDEO_STORE: storage?.videos || videoStore || null, APP_ORIGIN: origin, PAGES_ORIGIN: '',
+  const resolvedVideoStore = storage?.videos || videoStore || null;
+  const photoBucket = storage?.photos || bucket || localBucket(dataDir);
+  const travelBucket = resolvedVideoStore?.putTravelPhoto ? {
+    put: (key, bytes, options) => resolvedVideoStore.putTravelPhoto(key, bytes, options),
+    get: key => resolvedVideoStore.getTravelPhoto(key),
+    delete: key => resolvedVideoStore.deleteTravelPhoto(key),
+  } : photoBucket;
+  const env = { DB: db, BUCKET: photoBucket, TRAVEL_BUCKET: travelBucket, VIDEO_STORE: resolvedVideoStore, APP_ORIGIN: origin, PAGES_ORIGIN: '',
     ALBUM_AI_BASE_URL: albumAI.baseURL, ALBUM_AI_API_KEY: albumAI.apiKey,
     ALBUM_AI_VISION_MODEL: albumAI.visionModel, ALBUM_AI_EMBEDDING_MODEL: albumAI.embeddingModel };
   let entry;
@@ -129,11 +140,15 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
       const captionMatch = /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})\/caption$/.exec(url.pathname);
       const dateMatch = /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})\/date$/.exec(url.pathname);
       const match = captionMatch || dateMatch || /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})$/.exec(url.pathname);
-      const route = routes.get(url.pathname) || (captionMatch ? photoCaption : dateMatch ? photoDate : match ? photo : null);
+      const travelPhotoMatch = /^\/api\/travel\/footprints\/([a-zA-Z0-9_-]{1,100})\/photos\/([a-f0-9-]{36})$/.exec(url.pathname);
+      const travelFootprintMatch = /^\/api\/travel\/footprints\/([a-zA-Z0-9_-]{1,100})$/.exec(url.pathname);
+      const route = routes.get(url.pathname) || (travelPhotoMatch ? travelFootprintPhoto : travelFootprintMatch ? travelFootprint : captionMatch ? photoCaption : dateMatch ? photoDate : match ? photo : null);
       if (route) {
         const handler = route[request.method];
         if (typeof handler !== 'function') return new Response(null, { status: 405, headers: { Allow: Object.keys(route).filter(x => /^[A-Z]+$/.test(x)).join(', ') } });
-        const response = await handler(request, { params: Promise.resolve(match ? { id: match[1] } : {}) });
+        const params = travelPhotoMatch ? { id: travelPhotoMatch[1], photoId: travelPhotoMatch[2] } :
+          travelFootprintMatch ? { id: travelFootprintMatch[1] } : match ? { id: match[1] } : {};
+        const response = await handler(request, { params: Promise.resolve(params) });
         if (response.ok && ['/api/home', '/api/restore'].includes(url.pathname)) return Response.json({ ...await response.json(), identityNames: await (entry.names ? entry.names() : identityNames(db)) }, { headers: response.headers });
         return response;
       }
@@ -178,7 +193,9 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
       let body;
       if (!['GET', 'HEAD'].includes(method)) {
         const photoUpload = url.pathname === '/api/photos' && method === 'POST';
-        const limit = photoUpload ? 5 * 1024 * 1024 : ['/api/auth', '/api/passwords', '/api/recovery', '/api/setup', '/api/identities', '/api/album-ai', '/api/album-search', '/api/videos/presign'].includes(url.pathname) || url.pathname.endsWith('/complete') ? 2000 : 2 * 1024 * 1024;
+        const travelFootprintUpload = url.pathname === '/api/travel/footprints' && method === 'POST';
+        const limit = photoUpload ? 5 * 1024 * 1024 : travelFootprintUpload ? 8 * 1024 * 1024 :
+          ['/api/auth', '/api/passwords', '/api/recovery', '/api/setup', '/api/identities', '/api/album-ai', '/api/album-search', '/api/videos/presign'].includes(url.pathname) || url.pathname.endsWith('/complete') ? 2000 : 2 * 1024 * 1024;
         if (Number(headers.get('content-length') || 0) > limit) throw new HomeError('请求内容太大。', 413);
         body = await readBody(incoming, limit);
         if (body.length && url.pathname.startsWith('/api/')) {

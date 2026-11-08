@@ -27,7 +27,7 @@ export async function context() {
   const db=env.DB, now=Date.now();
   // Only the pinned owner or a valid home-key session can reach shared records.
   const member=await ensureMember(db,u,now);
-  return {db,bucket:env.BUCKET,videoStore:env.VIDEO_STORE||null,member,now,canManagePasswords:identity.nativeOwner,loginMethod:identity.loginMethod};
+  return {db,bucket:env.BUCKET,travelBucket:env.TRAVEL_BUCKET||env.BUCKET,videoStore:env.VIDEO_STORE||null,member,now,canManagePasswords:identity.nativeOwner,loginMethod:identity.loginMethod};
 }
 export async function snapshot(c: Awaited<ReturnType<typeof context>>) {
   const [room,list,photos,captions,videos]=await Promise.all([

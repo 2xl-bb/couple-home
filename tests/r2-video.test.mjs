@@ -30,3 +30,19 @@ test('R2 video adapter rejects unsafe keys, types, sizes and mismatched objects'
   await assert.rejects(store.createUpload({key,contentType:'video/mp4',sizeBytes:501*1024*1024}),/500 MB/);
   await assert.rejects(store.complete({key,contentType:'video/mp4',sizeBytes:2}),/不一致/);
 });
+
+test('R2 adapter stores private travel JPEGs in an isolated key space',async()=>{
+  const sent=[];
+  const jpeg=Buffer.from([255,216,255,217]);
+  const client={async send(command){sent.push(command);if(command.constructor.name==='GetObjectCommand')return{Body:{async transformToByteArray(){return jpeg}}};return{}},destroy(){}};
+  const store=createR2VideoStore({...config,client,signer:async()=>''});
+  const travelKey=`travel/${'c'.repeat(64)}/fp-test/00000000-0000-4000-8000-000000000001`;
+  await store.putTravelPhoto(travelKey,jpeg,{httpMetadata:{contentType:'image/jpeg'}});
+  assert.equal(sent[0].constructor.name,'PutObjectCommand');
+  assert.equal(sent[0].input.ContentType,'image/jpeg');
+  assert.deepEqual(Buffer.from((await store.getTravelPhoto(travelKey)).body),jpeg);
+  await store.deleteTravelPhoto(travelKey);
+  assert.deepEqual(sent.map(command=>command.constructor.name),['PutObjectCommand','GetObjectCommand','DeleteObjectCommand']);
+  await assert.rejects(store.putTravelPhoto(travelKey,Buffer.from('<html>'),{httpMetadata:{contentType:'image/jpeg'}}),/JPEG/);
+  await assert.rejects(store.getTravelPhoto('videos/../secret'),/行舟记照片存储键/);
+});

@@ -1,6 +1,6 @@
 # Render + Supabase + Cloudflare R2（测试部署）
 
-这个版本让 Render 只运行网站。小屋记录、双人密码与登录会话保存在 Neon PostgreSQL（也兼容 Supabase PostgreSQL）；照片保存在 Supabase Storage 私有桶；视频保存在 Cloudflare R2 私有桶。Render 临时磁盘不承载需要保留的数据。照片和视频属于共同小屋，两位已登录成员都能读取和删除；未登录访客不能读取或取得预签名地址。
+这个版本让 Render 只运行网站。小屋记录、双人密码与登录会话保存在 Neon PostgreSQL（也兼容 Supabase PostgreSQL）；主站照片保存在 Supabase Storage 私有桶；视频与行舟记足迹照片保存在 Cloudflare R2 私有桶。Render 临时磁盘不承载需要保留的数据。媒体属于共同小屋，两位已登录成员都能读取和删除；未登录访客不能读取。
 
 ## 部署前
 
@@ -25,7 +25,7 @@
 
 `AllowedOrigins` 必须与 `APP_ORIGIN` 完全一致，不带末尾斜线。浏览器通过预签名 URL 直接上传和播放视频；服务端生成的 CSP 会只放行当前 `R2_BUCKET_NAME` 与 `R2_ACCOUNT_ID` 对应的私有 R2 域名。
 
-数据库建表由应用首次启动执行。`schema.sql` 为初始迁移，部署后不要直接修改；后续升级由 `migrations/` 中带校验哈希的增量迁移按顺序自动执行。照片追加留言使用 `0002_photo_captions.sql`，原 `photos.caption` 保留为不可覆盖的原配文。数据库表明确拒绝 Supabase Data API 的 `anon` 和 `authenticated` 角色访问。
+数据库建表由应用首次启动执行。`schema.sql` 为初始迁移，部署后不要直接修改；后续升级由 `migrations/` 中带校验哈希的增量迁移按顺序自动执行。照片追加留言使用 `0002_photo_captions.sql`，行舟记云端同步使用 `0005_travel_footprints.sql`，原 `photos.caption` 保留为不可覆盖的原配文。数据库表明确拒绝 Supabase Data API 的 `anon` 和 `authenticated` 角色访问。
 
 ## Render 设置
 
@@ -51,6 +51,8 @@
 | `R2_ACCESS_KEY_ID` | R2 API Token 的 Access Key ID |
 | `R2_SECRET_ACCESS_KEY` | R2 API Token 的 Secret Access Key |
 | `R2_BUCKET_NAME` | 私有视频桶名称 |
+
+行舟记将压缩后的 JPEG 由服务端写入同一个私有 R2 桶，Neon 只保存受登录保护的同源照片 URL；不需要公开 R2 域名或额外浏览器 CORS 规则。R2 Token 需要有该桶对象的读、写、删权限。已有本地 IndexedDB 足迹会在成员登录且云端可用时自动迁移；两位成员可共享、更新并删除这份足迹列表。
 
 `PORT` 由 Render 提供，应用默认监听 `0.0.0.0`。不要把本地的 `HTTPS_PROXY`、`NODE_USE_ENV_PROXY` 或 Clash 地址复制到 Render。无需 `SESSION_SECRET`：现有登录会话的随机令牌以哈希形式存在数据库中。AI 相册整理是可选功能；不配置相应 API 变量就不会发送照片给 AI 服务。
 

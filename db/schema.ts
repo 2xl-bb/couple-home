@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const roomState = sqliteTable('room_state', {
   id: integer('id').primaryKey(),
@@ -26,6 +26,20 @@ export const photos = sqliteTable('photos', {
   caption: text('caption').notNull(),
   createdAt: integer('created_at').notNull(),
   userId: text('user_id').notNull(),
+});
+
+export const travelFootprints = sqliteTable('travel_footprints', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  cityName: text('city_name').notNull(),
+  name: text('name').notNull(),
+  lat: real('lat').notNull(),
+  lng: real('lng').notNull(),
+  photos: text('photos').notNull(),
+  visitDate: text('visit_date').notNull(),
+  note: text('note').notNull(),
+  color: text('color').notNull(),
+  createdAt: integer('created_at').notNull(),
 });
 
 export const photoAi = sqliteTable('photo_ai', {

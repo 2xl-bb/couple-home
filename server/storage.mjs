@@ -53,7 +53,8 @@ export function openDatabase(dataDir, migrationsDir) {
 }
 
 export function photoPath(root, key) {
-  if (typeof key !== 'string' || !/^photos\/(?:[a-f0-9]{64}\/)?(?:[a-f0-9]{8}-[a-f0-9-]{27}|import-[a-f0-9]{64})$/.test(key)) {
+  if (typeof key !== 'string' || !(/^photos\/(?:[a-f0-9]{64}\/)?(?:[a-f0-9]{8}-[a-f0-9-]{27}|import-[a-f0-9]{64})$/.test(key) ||
+      /^travel\/[a-f0-9]{64}\/[a-zA-Z0-9_-]{1,100}\/[a-f0-9-]{36}$/.test(key))) {
     throw new Error('无效的照片存储键');
   }
   return resolve(root, key);

@@ -6,9 +6,15 @@ const CREDENTIAL = /^[A-Za-z0-9_-]{16,128}$/;
 const BUCKET = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
 const VIDEO_KEY = /^videos\/[a-f0-9]{64}\/[a-f0-9-]{36}$/;
 const VIDEO_TYPE = /^video\/(?:mp4|webm|quicktime)$/;
+const TRAVEL_PHOTO_KEY = /^travel\/[a-f0-9]{64}\/[a-zA-Z0-9_-]{1,100}\/[a-f0-9-]{36}$/;
 
 function validateKey(key) {
   if (typeof key !== 'string' || !VIDEO_KEY.test(key)) throw new Error('无效的视频存储键');
+  return key;
+}
+
+function validateTravelPhotoKey(key) {
+  if (typeof key !== 'string' || !TRAVEL_PHOTO_KEY.test(key)) throw new Error('无效的行舟记照片存储键');
   return key;
 }
 
@@ -56,6 +62,32 @@ export function createR2VideoStore({ accountId, accessKeyId, secretAccessKey, bu
     },
     async delete(key) {
       validateKey(key);
+      await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    },
+    async putTravelPhoto(key, bytes, options = {}) {
+      validateTravelPhotoKey(key);
+      if (options?.httpMetadata?.contentType !== 'image/jpeg' || bytes.byteLength < 4 || bytes.byteLength > 1024 * 1024) {
+        throw new Error('行舟记照片不能超过 1 MB，且必须是 JPEG 图片');
+      }
+      const body = Buffer.from(bytes);
+      if (body[0] !== 255 || body[1] !== 216 || body[2] !== 255 || body[body.length - 2] !== 255 || body[body.length - 1] !== 217) {
+        throw new Error('行舟记照片 JPEG 内容无效');
+      }
+      await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: 'image/jpeg', ContentLength: body.length, CacheControl: 'private, no-store' }));
+    },
+    async getTravelPhoto(key) {
+      validateTravelPhotoKey(key);
+      let object;
+      try { object = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key })); }
+      catch (error) {
+        if (error?.$metadata?.httpStatusCode === 404 || error?.name === 'NoSuchKey' || error?.name === 'NotFound') return null;
+        throw error;
+      }
+      if (!object.Body) return null;
+      return { body: Buffer.from(await object.Body.transformToByteArray()) };
+    },
+    async deleteTravelPhoto(key) {
+      validateTravelPhotoKey(key);
       await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
     },
     async close() { s3.destroy?.(); },

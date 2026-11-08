@@ -48,7 +48,7 @@ test('both members share photo uploads, bytes, deduplication and deletion',async
  const jpeg=new Uint8Array([255,216,255,224,12,34,255,217]);
  const upload=async (bytes,createdAt,user='alice',takenAt)=>{const f=new FormData();f.append('photo',new Blob([bytes],{type:'image/jpeg'}),'memory.jpg');f.append('caption','一起看海');f.append('merge','1');if(createdAt!==undefined)f.append('created_at',String(createdAt));if(takenAt!==undefined)f.append('taken_at',new Date(takenAt).toISOString());const encoded=new Request(origin+'/api/photos',{method:'POST',body:f});return mf.dispatchFetch(origin+'/api/photos',{method:'POST',headers:{...auth(user),Origin:origin,...Object.fromEntries(encoded.headers)},body:await encoded.arrayBuffer()})};
  assert.equal((await upload(new Uint8Array([255]))).status,400);assert.equal((await upload(jpeg,-1)).status,400);const originalDate=Date.UTC(2025,2,8),takenAt=Date.UTC(2012,2,4);const r=await upload(jpeg,originalDate,'alice',takenAt);assert.equal(r.status,200);const p=await r.json();
- const duplicate=await upload(jpeg,undefined,'bob');assert.equal(duplicate.status,200);const q=await duplicate.json();assert.equal(q.id,p.id);assert.equal(q.existed,true);
+ const duplicate=await upload(jpeg,undefined,'bob');assert.equal(duplicate.status,200);const q=await duplicate.json();assert.match(p.id,/^import-/);assert.equal(q.id,p.id);assert.equal(q.existed,true);
  const sameCaption=await upload(new Uint8Array([255,216,255,224,90,80,255,217]));assert.equal(sameCaption.status,200);assert.notEqual((await sameCaption.json()).id,p.id);
  const partnerPhoto=await get('/api/photos/'+p.id,'bob');assert.equal(partnerPhoto.status,200);assert.equal(partnerPhoto.headers.get('content-type'),'image/jpeg');assert.deepEqual(new Uint8Array(await partnerPhoto.arrayBuffer()),jpeg);const photo=await get('/api/photos/'+p.id,'alice');assert.equal(photo.status,200);
  assert.equal((await get('/api/photos/'+p.id)).status,401);
@@ -61,6 +61,23 @@ test('both members share photo uploads, bytes, deduplication and deletion',async
  assert.equal((await mf.dispatchFetch(origin+'/api/photos/'+p.id,{method:'DELETE',headers:{...auth('bob'),Origin:origin}})).status,200);
  assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM photo_captions WHERE photo_id=?').bind(p.id).first()).n,0);
  assert.equal((await get('/api/photos/'+p.id,'alice')).status,404);
+});
+
+test('photo uploads persist optional GPS coordinates and a location name',async()=>{
+ const jpeg=new Uint8Array([255,216,255,224,71,80,255,217]),form=new FormData();
+ form.append('photo',new Blob([jpeg],{type:'image/jpeg'}),'place.jpg');form.append('caption','海边散步');form.append('merge','1');form.append('latitude','31.2304');form.append('longitude','121.4737');form.append('location_name','外滩');
+ const encoded=new Request(origin+'/api/photos',{method:'POST',body:form}),response=await mf.dispatchFetch(origin+'/api/photos',{method:'POST',headers:{...auth('alice'),Origin:origin,...Object.fromEntries(encoded.headers)},body:await encoded.arrayBuffer()});
+ assert.equal(response.status,200,await response.clone().text());const photo=await response.json();assert.equal(photo.latitude,31.2304);assert.equal(photo.longitude,121.4737);assert.equal(photo.location_name,'外滩');
+ const stored=await db.prepare('SELECT latitude,longitude,location_name FROM photos WHERE id=?').bind(photo.id).first();assert.equal(Number(stored.latitude),31.2304);assert.equal(Number(stored.longitude),121.4737);assert.equal(stored.location_name,'外滩');
+ const duplicateForm=new FormData();duplicateForm.append('photo',new Blob([jpeg],{type:'image/jpeg'}),'place.jpg');duplicateForm.append('caption','海边散步');duplicateForm.append('merge','1');
+ const duplicateRequest=new Request(origin+'/api/photos',{method:'POST',body:duplicateForm}),duplicate=await mf.dispatchFetch(origin+'/api/photos',{method:'POST',headers:{...auth('bob'),Origin:origin,...Object.fromEntries(duplicateRequest.headers)},body:await duplicateRequest.arrayBuffer()});
+ assert.equal(duplicate.status,200,await duplicate.clone().text());assert.equal((await duplicate.json()).existed,true);
+ const retained=await db.prepare('SELECT latitude,longitude,location_name FROM photos WHERE id=?').bind(photo.id).first();assert.equal(Number(retained.latitude),31.2304);assert.equal(Number(retained.longitude),121.4737);assert.equal(retained.location_name,'外滩');
+ const updateForm=new FormData();updateForm.append('photo',new Blob([jpeg],{type:'image/jpeg'}),'place.jpg');updateForm.append('caption','海边散步');updateForm.append('merge','1');updateForm.append('latitude','29.609435');updateForm.append('longitude','106.545764');updateForm.append('location_name','重庆');
+ const updateRequest=new Request(origin+'/api/photos',{method:'POST',body:updateForm}),updated=await mf.dispatchFetch(origin+'/api/photos',{method:'POST',headers:{...auth('bob'),Origin:origin,...Object.fromEntries(updateRequest.headers)},body:await updateRequest.arrayBuffer()});
+ assert.equal(updated.status,200,await updated.clone().text());assert.equal((await updated.json()).id,photo.id);
+ const savedUpdate=await db.prepare('SELECT latitude,longitude,location_name FROM photos WHERE id=?').bind(photo.id).first();assert.equal(Number(savedUpdate.latitude),29.609435);assert.equal(Number(savedUpdate.longitude),106.545764);assert.equal(savedUpdate.location_name,'重庆');
+ const snapshot=await(await get('/api/home','bob')).json(),shared=snapshot.state.photos.find(item=>item.id===photo.id);assert.equal(shared.latitude,29.609435);assert.equal(shared.longitude,106.545764);assert.equal(shared.location_name,'重庆');
 });
 
 
@@ -112,7 +129,7 @@ test('complete archive is owner-only and preserves sealed letters and full pet w
  const denied=await get('/api/backup');assert.equal(denied.status,403);
  const partner=await get('/api/backup','bob');assert.equal(partner.status,403);
  const response=await get('/api/backup','alice');assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');
- const archive=await response.json();assert.equal(archive.state.v,2);assert.ok(archive.state.letters.some(l=>l.text==='未来见'&&l.openDate==='2099-01-01'));assert.equal(archive.state.pet.xp,20);assert.ok(!('cooldowns' in archive.state.pet));assert.ok(archive.state.photos.length>0);
+ const archive=await response.json();assert.equal(archive.state.v,2);assert.ok(archive.state.letters.some(l=>l.text==='未来见'&&l.openDate==='2099-01-01'));assert.equal(archive.state.pet.xp,20);assert.ok(!('cooldowns' in archive.state.pet));assert.ok(archive.state.photos.length>0);assert.ok(archive.state.photos.every(photo=>'latitude'in photo&&'longitude'in photo&&'location_name'in photo));
  assert.ok(!JSON.stringify(archive).includes('password_hash'));assert.ok(!JSON.stringify(archive).includes('token_hash'));
  const publicHome=await get('/api/home','alice');assert.ok((await publicHome.json()).state.letters.filter(l=>l.openDate==='2099-01-01').every(l=>l.text===''));
 });

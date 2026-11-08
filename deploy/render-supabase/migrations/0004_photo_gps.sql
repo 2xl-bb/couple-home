@@ -1,0 +1,3 @@
+ALTER TABLE photos ADD COLUMN latitude NUMERIC;
+ALTER TABLE photos ADD COLUMN longitude NUMERIC;
+ALTER TABLE photos ADD COLUMN location_name VARCHAR(160);

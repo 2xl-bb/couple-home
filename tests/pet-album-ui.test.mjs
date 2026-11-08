@@ -65,11 +65,11 @@ test('album renders a minimal grouped timeline and shared caption history',()=>{
 });
 
 function uploadFixture(){
- let submit,uploaded=[],fail='',refreshes=0,closed=0;
+ let submit,uploaded=[],uploadDetails=[],fail='',refreshes=0,closed=0;
  const nodes={'#modal':{dataset:{},addEventListener(){}},'#upload-progress':{},'#upload-status':{},'#active-form button[type="submit"]':{},'#active-form input[name="photo"]':{files:[]},'#photo-preview':{}};
- const context=vm.createContext({$:selector=>nodes[selector],needReady:()=>true,modal(){},field:(...args)=>args.join(' '),form:(html,fn)=>{assert.match(html,/multiple/);submit=fn},extractPhotoTakenAt:async()=>Date.now(),compressPhoto:async file=>file,uploadPhoto:async file=>{if(file.name===fail){fail='';throw Error('网络中断')}uploaded.push(file.name)},refreshNow:async()=>{refreshes++},close:()=>{closed++},toast(){},URL,albumLimit:12,albumMonth:'2026-01'});
+ const context=vm.createContext({$:selector=>nodes[selector],needReady:()=>true,modal(){},field:(...args)=>args.join(' '),form:(html,fn)=>{assert.match(html,/multiple/);submit=fn},esc:String,extractPhotoMeta:async()=>({takenAt:Date.now(),lat:null,lng:null}),compressPhoto:async file=>file,uploadPhoto:async(...args)=>{const file=args[0];if(file.name===fail){fail='';throw Error('网络中断')}uploaded.push(file.name);uploadDetails.push(args.slice(6,9))},refreshNow:async()=>{refreshes++},close:()=>{closed++},toast(){},URL,albumLimit:12,albumMonth:'2026-01'});
  vm.runInContext(source.slice(source.indexOf('function addPhoto()'),source.indexOf("$('#add-photo').onclick=addPhoto;")),context);
- return {open:()=>context.addPhoto(),send:files=>{nodes['#active-form input[name="photo"]'].files=files;return submit({get:()=>''})},set fail(v){fail=v},get uploaded(){return uploaded},get refreshes(){return refreshes},get closed(){return closed}};
+ return {open:()=>context.addPhoto(),send:(files,manualLocation='')=>{nodes['#active-form input[name="photo"]'].files=files;return submit({get:name=>name==='manual_location'?manualLocation:''})},set fail(v){fail=v},get uploaded(){return uploaded},get uploadDetails(){return uploadDetails},get refreshes(){return refreshes},get closed(){return closed}};
 }
 
 test('multi-photo upload can reopen and add again; partial failure retains already saved work',async()=>{
@@ -79,6 +79,12 @@ test('multi-photo upload can reopen and add again; partial failure retains alrea
  f.open();f.fail='e';await assert.rejects(()=>f.send([photo('d'),photo('e')]),/网络中断/);assert.ok(f.uploaded.includes('d'));assert.equal(f.closed,2);assert.equal(f.refreshes,3);
  await f.send([photo('d'),photo('e')]);assert.equal(f.closed,3); // Server merge key makes the retried d idempotent.
  f.open();await assert.rejects(()=>f.send(Array.from({length:21},(_,i)=>photo(String(i)))),/20 张/);
+});
+
+test('manual city location is passed to the same upload flow when EXIF GPS is missing',async()=>{
+ const f=uploadFixture(),photo={name:'screenshot.jpg',size:1024};
+ f.open();await f.send([photo],'shanghai');
+ assert.deepEqual(f.uploadDetails[0],[31.2304,121.4737,'上海']);
 });
 
 test('all selected decorations render in the main room and cancel restores saved room',async()=>{

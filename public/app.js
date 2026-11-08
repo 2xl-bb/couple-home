@@ -198,19 +198,85 @@ document.querySelectorAll('[data-mood]').forEach(b=>b.onclick=async()=>{if(!need
 $('#random-date').onclick=()=>{if(!needReady())return;location.hash='/together'};
 $('#wish-form').onsubmit=async e=>{e.preventDefault();if(!needReady())return;const text=$('#wish-input').value.trim();if(!text)return;const btn=e.submitter;btn.disabled=true;try{await mutate('wish.add',{id:uid(),text});$('#wish-input').value='';toast('又多了一个一起期待的以后')}catch(err){toast(err.message)}finally{btn.disabled=false}};
 $('#add-letter').onclick=()=>{if(!needReady())return;modal('写给最喜欢的那个人');form(field('署名','author','text',state.names[(me?.slot||1)-1],'required maxlength="20"')+'<label class="form-field">想说的话<textarea name="text" required maxlength="3000" placeholder="亲爱的，今天想对你说……"></textarea></label>'+field('约定打开日期（可选）','openDate','date','',`min="${today()}"`)+'<p class="form-help">未来信的正文会在云端收好，到了约定日期再一起打开。日期按北京时间计算。</p>',async d=>{await mutate('letter.add',{...Object.fromEntries(d),id:uid()});close();toast('你的心意，已经在小屋里收好了 ♡')},'letter')};
-async function compressPhoto(file){if(!file.type.startsWith('image/')||file.size>20*1024*1024)throw new Error('请选择 20MB 以内的可读取图片。');const url=URL.createObjectURL(file);try{const img=new Image();img.src=url;await img.decode();const scale=Math.min(1,1600/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);return await new Promise((ok,fail)=>c.toBlob(blob=>blob?ok(blob):fail(new Error('图片暂时无法处理。')),'image/jpeg',.82))}finally{URL.revokeObjectURL(url)}}
-async function extractPhotoTakenAt(file,now=Date.now()){let takenAt=now;const type=String(file?.type||'').toLowerCase(),canReadExif=/^image\/(jpeg|heic|heif|tiff)$/.test(type),exifr=globalThis.exifr;if(canReadExif&&exifr&&typeof exifr.parse==='function')try{const exifData=await exifr.parse(file,['DateTimeOriginal']);if(exifData&&typeof exifData==='object'){const value=exifData?.DateTimeOriginal,parsed=value instanceof Date?value.getTime():Date.parse(String(value||''));if(Number.isFinite(parsed)&&parsed>0&&parsed<=now+86400000)takenAt=parsed}}catch{}console.log('提取到的 EXIF 时间:',takenAt);return takenAt}
-async function uploadPhoto(blob,caption,merge=true,onProgress=()=>{},createdAt,takenAt){
- const payload=new FormData();payload.append('photo',blob,'memory.jpg');payload.append('caption',caption);payload.append('merge','1');if(createdAt!==undefined)payload.append('created_at',String(createdAt));if(takenAt!==undefined)payload.append('taken_at',new Date(takenAt).toISOString());
- const send=()=>new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open('POST',API_ORIGIN+'/api/photos');xhr.timeout=60000;xhr.withCredentials=!PAGES_MODE;if(PAGES_MODE&&pagesToken)xhr.setRequestHeader('Authorization','Bearer '+pagesToken);xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(Math.min(99,Math.round(e.loaded/e.total*100)))};xhr.onerror=()=>reject(new Error('网络中断，照片尚未确认保存。'));xhr.ontimeout=()=>reject(new Error('上传超时，照片尚未确认保存。'));xhr.onload=()=>{let result;try{result=JSON.parse(xhr.responseText)}catch{return reject(new Error('上传入口暂时不可用，请稍后重试。'))}if(xhr.status>=200&&xhr.status<300){onProgress(100);resolve(result)}else{const err=new Error(result.error||'照片没有上传成功。');err.status=xhr.status;if(xhr.status===401)showLogin(err.message);reject(err)}};xhr.send(payload)});
+async function extractPhotoMeta(file, now = Date.now()) {
+  let takenAt = now, lat = null, lng = null;
+  const type = String(file?.type || '').toLowerCase();
+  const canReadExif = /^image\/(jpeg|heic|heif|tiff)$/.test(type);
+  const exifr = globalThis.exifr;
+  let exifData = null;
+
+  if (canReadExif && exifr && typeof exifr.parse === 'function') {
+    try {
+      exifData = await exifr.parse(file, { gps: true, exif: true, tiff: true });
+
+      if (exifData && typeof exifData === 'object') {
+        const dateVal = exifData.DateTimeOriginal;
+        if (dateVal) {
+          const parsed = dateVal instanceof Date ? dateVal.getTime() : Date.parse(String(dateVal));
+          if (Number.isFinite(parsed) && parsed > 0 && parsed <= now + 86400000) {
+            takenAt = parsed;
+          }
+        }
+
+        const parseCoordinate = (value, ref) => {
+          if (value === null || value === undefined || value === '') return null;
+          const number = part => {
+            if (typeof part === 'number') return part;
+            if (Array.isArray(part) && part.length === 2) return Number(part[0]) / Number(part[1]);
+            if (part && typeof part === 'object' && 'numerator' in part) return Number(part.numerator) / Number(part.denominator);
+            return Number(part);
+          };
+          let degrees;
+          if (Array.isArray(value) && value.length >= 3) {
+            const [d, m, s] = value.slice(0, 3).map(number);
+            if (![d, m, s].every(Number.isFinite)) return null;
+            degrees = d + m / 60 + s / 3600;
+          } else {
+            degrees = number(value);
+          }
+          if (!Number.isFinite(degrees)) return null;
+          if (/^[SW]$/i.test(String(ref || ''))) degrees = -Math.abs(degrees);
+          if (/^[NE]$/i.test(String(ref || ''))) degrees = Math.abs(degrees);
+          return degrees;
+        };
+
+        lat = parseCoordinate(exifData.latitude ?? exifData.GPSLatitude, exifData.GPSLatitudeRef);
+        lng = parseCoordinate(exifData.longitude ?? exifData.GPSLongitude, exifData.GPSLongitudeRef);
+        if (lat < -90 || lat > 90) lat = null;
+        if (lng < -180 || lng > 180) lng = null;
+      }
+    } catch (e) {
+      console.warn('读取照片 EXIF 失败:', e);
+    }
+  }
+
+  console.log('完整EXIF:', exifData);
+  console.log('提取到的元数据:', { takenAt, lat, lng });
+  return { takenAt, lat, lng };
+}
+async function uploadPhoto(blob,caption,merge=true,onProgress=()=>{},createdAt,takenAt,latitude,longitude,locationName){
+ const payload=new FormData();
+payload.append('photo',blob,'memory.jpg');
+payload.append('caption',caption);
+payload.append('merge','1');
+if(createdAt!==undefined) payload.append('created_at',String(createdAt));
+if(takenAt!==undefined) payload.append('taken_at',new Date(takenAt).toISOString());
+if(latitude!==undefined&&latitude!==null&&longitude!==undefined&&longitude!==null){
+ payload.append('latitude',String(latitude));
+ payload.append('longitude',String(longitude));
+}
+if(locationName)payload.append('location_name',String(locationName));
+ const send=()=>new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open('POST',API_ORIGIN+'/api/photos');xhr.timeout=60000;xhr.withCredentials=!PAGES_MODE;if(PAGES_MODE&&pagesToken)xhr.setRequestHeader('Authorization','Bearer '+pagesToken);xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(Math.min(99,Math.round(e.loaded/e.total*100)))};xhr.onerror=()=>reject(new Error('网络中断，照片尚未确认保存。'));xhr.ontimeout=()=>reject(new Error('上传超时，照片尚未确认保存。'));xhr.onload=()=>{let result;try{result=JSON.parse(xhr.responseText)}catch{return reject(new Error('上传入口暂时不可用，请稍后重试。'))}if(xhr.status>=200&&xhr.status<300){onProgress(100);resolve(result)}else{const err=new Error(result.error||'照片没有上传成功。');err.status=xhr.status;if(xhr.status===401)showLogin(err.message);reject(err)}};console.log('发送的 payload:',Array.from(payload.entries()));xhr.send(payload)});
  try{return await send()}catch(e){if(e.status)throw e;onProgress(0);return send()}
 }
 function addPhoto(){
  if(!needReady())return;modal('把照片收藏进相册');
- form(field('选择照片（一次最多 20 张）','photo','file','','required multiple accept="image/*"')+'<img id="photo-preview" class="upload-preview" alt="第一张待上传的照片预览" hidden>'+field('给这组照片写一句话','caption','text','','maxlength="80" placeholder="和你一起看过的第一个日落"')+'<p class="form-help">相册可收藏 5,000 张，每次可多选 20 张，单张原图不超过 20 MB。会自动压缩，逐张保存；失败后重试会跳过已保存的照片。</p><progress id="upload-progress" max="100" value="0" hidden></progress><p class="form-help" id="upload-status" role="status"></p>',async d=>{
+ const places=[['shanghai','上海',31.2304,121.4737],['beijing','北京',39.9042,116.4074],['hangzhou','杭州',30.2741,120.1551],['chengdu','成都',30.5728,104.0668],['guangzhou','广州',23.1291,113.2644],['shenzhen','深圳',22.5431,114.0579],['nanjing','南京',32.0603,118.7969],['wuhan','武汉',30.5928,114.3055],['xian','西安',34.3416,108.9398],['hongkong','香港',22.3193,114.1694],['tokyo','东京',35.6762,139.6503],['paris','巴黎',48.8566,2.3522],['new-york','纽约',40.7128,-74.006]];
+ form(field('选择照片（一次最多 20 张）','photo','file','','required multiple accept="image/*"')+'<img id="photo-preview" class="upload-preview" alt="第一张待上传的照片预览" hidden>'+field('给这组照片写一句话','caption','text','','maxlength="80" placeholder="和你一起看过的第一个日落"')+`<label class="form-field">手动定位（可选，可覆盖照片 GPS）<select name="manual_location"><option value="">使用照片自动提取的 GPS</option>${places.map(place=>`<option value="${place[0]}">${esc(place[1])}</option>`).join('')}</select></label><p class="form-help">手动地点会应用于本次选择的所有照片；不选则保留每张照片自动提取的位置。当前支持常用城市。</p>`+'<p class="form-help">相册可收藏 5,000 张，每次可多选 20 张，单张原图不超过 20 MB。会自动压缩，逐张保存；失败后重试会跳过已保存的照片。</p><progress id="upload-progress" max="100" value="0" hidden></progress><p class="form-help" id="upload-status" role="status"></p>',async d=>{
   const files=Array.from($('#active-form input[name="photo"]')?.files||[]).filter(f=>f.size),progress=$('#upload-progress'),note=$('#upload-status');if(!files.length)throw Error('请先选择照片。');if(files.length>20)throw Error('一次最多选择 20 张，可以分批继续添加。');if(files.some(f=>f.size>20*1024*1024))throw Error('有照片超过 20 MB，请选择小一些的原图。');
+  const manualPlace=places.find(place=>place[0]===d.get('manual_location'));
   $('#modal').dataset.busy='1';progress.hidden=false;let saved=0;
-  try{for(const [i,file]of files.entries()){note.textContent=`正在读取第 ${i+1} / ${files.length} 张的拍摄时间……`;const takenAt=await extractPhotoTakenAt(file);note.textContent=`正在压缩第 ${i+1} / ${files.length} 张……`;const blob=await compressPhoto(file);await uploadPhoto(blob,d.get('caption'),true,n=>{progress.value=(i*100+n)/files.length;note.textContent=`正在上传第 ${i+1} / ${files.length} 张 · ${n}%`},undefined,takenAt);saved++}
+  try{for(const [i,file]of files.entries()){note.textContent=`正在读取第 ${i+1} / ${files.length} 张的拍摄时间和地点……`;const meta=await extractPhotoMeta(file);note.textContent=`正在压缩第 ${i+1} / ${files.length} 张……`;const blob=await compressPhoto(file);await uploadPhoto(blob,d.get('caption'),true,n=>{progress.value=(i*100+n)/files.length;note.textContent=`正在上传第 ${i+1} / ${files.length} 张 · ${n}%`},undefined,meta.takenAt,manualPlace?.[2]??meta.lat,manualPlace?.[3]??meta.lng,manualPlace?.[1]);saved++}
    albumMonth='';if(typeof resetAlbumTimeline==='function')resetAlbumTimeline();await refreshNow();$('#modal').dataset.busy='0';close();toast(`${files.length} 张回忆已收藏 ♡`)
   }catch(e){note.textContent=`已处理 ${saved} / ${files.length} 张。${e.message} 点击重新上传可继续，不会重复保存。`;$('#active-form button[type="submit"]').textContent='重新上传 ↻';try{await refreshNow()}catch{}throw e}finally{$('#modal').dataset.busy='0'}
  });
@@ -273,7 +339,7 @@ async function exportData(){
 let legacy=null;try{legacy=JSON.parse(localStorage.getItem(OLD_KEY)||'null')}catch{}
 function checkMigration(){let dismissed=false;try{dismissed=!!localStorage.getItem('little-days-migrated')}catch{}$('#migration-banner').hidden=!(ready&&legacy&&!dismissed&&(legacy.start||legacy.stories?.length||legacy.photos?.length||legacy.letters?.length||legacy.wishes?.length))}
 async function restorePhotoCaptions(photo,photoId){for(const item of Array.isArray(photo.captions)?photo.captions:[]){if(!item||item.original||typeof item.text!=='string'||!item.text.trim()||item.text.trim().length>500)continue;await api('/api/photos/'+encodeURIComponent(photoId)+'/caption',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:item.id,text:item.text,createdAt:item.createdAt})})}}
-async function mergeBackup(data,isLegacy=false){if(![1,2].includes(data?.v)||!Array.isArray(data.names)||!Array.isArray(data.photos)||data.photos.length>5000)throw new Error('这份文件不是有效的小屋备份。');const btn=$('#confirm-import');btn.disabled=true;btn.textContent='正在搬回忆…';try{await mutate('import',{data:{...data,photos:[]}});let n=0;for(const p of data.photos){if(!p.data||!/^data:image\/jpeg(?:;[^,;]+)*;base64,[A-Za-z0-9+/=]+$/i.test(p.data))continue;const blob=await(await fetch(p.data)).blob();if(blob.size>4*1024*1024)continue;const result=await uploadPhoto(new Blob([blob],{type:'image/jpeg'}),p.caption||'',true,()=>{},p.created_at,p.taken_at);await restorePhotoCaptions(p,result.id);if(!result.existed)n++}if(isLegacy)try{localStorage.setItem('little-days-migrated','1')}catch{}await refreshNow();checkMigration();close();toast(`回忆已经合并进云端${n?`，带来了 ${n} 张照片`:''} ♡`)}catch(e){btn.disabled=false;btn.textContent='继续搬回忆';throw e}}
+async function mergeBackup(data,isLegacy=false){if(![1,2].includes(data?.v)||!Array.isArray(data.names)||!Array.isArray(data.photos)||data.photos.length>5000)throw new Error('这份文件不是有效的小屋备份。');const btn=$('#confirm-import');btn.disabled=true;btn.textContent='正在搬回忆…';try{await mutate('import',{data:{...data,photos:[]}});let n=0;for(const p of data.photos){if(!p.data||!/^data:image\/jpeg(?:;[^,;]+)*;base64,[A-Za-z0-9+/=]+$/i.test(p.data))continue;const blob=await(await fetch(p.data)).blob();if(blob.size>4*1024*1024)continue;const result=await uploadPhoto(new Blob([blob],{type:'image/jpeg'}),p.caption||'',true,()=>{},p.created_at,p.taken_at,p.latitude,p.longitude,p.location_name);await restorePhotoCaptions(p,result.id);if(!result.existed)n++}if(isLegacy)try{localStorage.setItem('little-days-migrated','1')}catch{}await refreshNow();checkMigration();close();toast(`回忆已经合并进云端${n?`，带来了 ${n} 张照片`:''} ♡`)}catch(e){btn.disabled=false;btn.textContent='继续搬回忆';throw e}}
 function importConfirm(data,isLegacy=false){
 if(![1,2].includes(data?.v)||!Array.isArray(data.names)||!Array.isArray(data.photos)||data.photos.length>5000||!['stories','wishes','letters','anniversaries'].every(k=>Array.isArray(data[k]))){toast('备份内容不完整，请选择有效文件。');return}
  const previewRevision=revision;modal('先看看，要带回哪些回忆',`<div class="account-card">${esc(data.names.join(' & '))}<span>故事 ${data.stories.length} · 留言 ${data.letters.length} · 心愿 ${data.wishes.length} · 纪念日 ${data.anniversaries.length} · 照片 ${data.photos.length}</span><span>心情 ${Object.keys(data.moods||{}).length} 天 · 问答 ${Object.keys(data.daily||{}).length} 天 · 灵感 ${data.dateIdeas?.length||0} · 日程 ${data.calendar?.length||0} · 小券 ${data.coupons?.length||0} · 宠物 ${esc(data.pet?.name||'未包含')} · 成长值 ${Number(data.pet?.xp)||0}</span></div><p class="form-help">默认合并回忆，保留云端已有记录与宠物。普通成员只合并自己的答案和档案；请管理员导入完整双人备份。照片始终合并，不删除现有照片。失败后可重试，已导入的内容会跳过。</p>${me?.canManagePasswords&&data.v===2&&data.pet&&!isLegacy?'<label class="form-field">恢复方式<select id="restore-mode"><option value="merge">合并回忆，保留现在的宠物</option><option value="restore">恢复备份的文字、设置、心情和宠物</option></select></label><p class="form-help">恢复会替换当前文字、名字、心情和宠物（包括成长值）。建议先下载当前完整备份。照片不会删除；登录密码与恢复码不变。</p><label class="form-field" id="restore-confirm-label" hidden>确认恢复，请输入“恢复小屋”<input id="restore-confirm" autocomplete="off"></label>':''}<p id="restore-progress" class="form-help" role="status"></p><div class="form-actions"><button class="outline" id="cancel-import">取消</button><button class="primary" id="confirm-import">带回我们的小屋</button></div>`);
@@ -281,7 +347,7 @@ if(![1,2].includes(data?.v)||!Array.isArray(data.names)||!Array.isArray(data.pho
  $('#cancel-import').onclick=close;$('#confirm-import').onclick=async()=>{const btn=$('#confirm-import'),note=$('#restore-progress'),restore=$('#restore-mode')?.value==='restore';if(restore&&$('#restore-confirm').value!=='恢复小屋'){note.textContent='请先输入“恢复小屋”确认。';return}btn.disabled=true;$('#modal').dataset.busy='1';try{
  note.textContent='正在校验备份与照片……';for(const p of data.photos){if(p.created_at!==undefined&&(!Number.isSafeInteger(p.created_at)||p.created_at<=0||p.created_at>Date.now()))throw new Error('备份中的照片日期无效，尚未开始恢复。');if(typeof p.data!=='string'||!/^data:image\/jpeg(?:;[^,;]+)*;base64,[A-Za-z0-9+/=]+$/i.test(p.data))throw new Error('备份中有照片数据缺失，尚未开始恢复。');const blob=await(await fetch(p.data)).blob();if(!blob.size||blob.size>4*1024*1024)throw new Error('备份中有照片格式或大小不正确，尚未开始恢复。');const head=new Uint8Array(await blob.slice(0,3).arrayBuffer());if(head.length<3||head[0]!==255||head[1]!==216||head[2]!==255)throw new Error('备份中有照片格式不正确，尚未开始恢复。');const checksum=data.backup?.photoChecksums?.[p.id];if(checksum){const actual=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),x=>x.toString(16).padStart(2,'0')).join('');if(actual!==checksum)throw new Error('照片校验失败，文件可能已损坏。尚未开始恢复。')}}
  if(restore&&revision!==previewRevision)throw new Error('预览后小屋已更新，请重新选择备份并预览。');
- const photoIds=new Map();for(let i=0;i<data.photos.length;i++){const p=data.photos[i];note.textContent=`正在合并照片 ${i+1} / ${data.photos.length}……`;let targetId=p.id;if(!state.photos.some(x=>x.id===p.id)){const blob=await(await fetch(p.data)).blob();const result=await uploadPhoto(new Blob([blob],{type:'image/jpeg'}),p.caption||'',true,()=>{},p.created_at,p.taken_at);targetId=result.id}photoIds.set(p.id,targetId);await restorePhotoCaptions(p,targetId)}const importedData={...data,dateIdeas:data.dateIdeas?.map(x=>({...x,photoId:x.photoId?(photoIds.get(x.photoId)||x.photoId):''}))};
+ const photoIds=new Map();for(let i=0;i<data.photos.length;i++){const p=data.photos[i];note.textContent=`正在合并照片 ${i+1} / ${data.photos.length}……`;let targetId=p.id;if(!state.photos.some(x=>x.id===p.id)){const blob=await(await fetch(p.data)).blob();const result=await uploadPhoto(new Blob([blob],{type:'image/jpeg'}),p.caption||'',true,()=>{},p.created_at,p.taken_at,p.latitude,p.longitude,p.location_name);targetId=result.id}photoIds.set(p.id,targetId);await restorePhotoCaptions(p,targetId)}const importedData={...data,dateIdeas:data.dateIdeas?.map(x=>({...x,photoId:x.photoId?(photoIds.get(x.photoId)||x.photoId):''}))};
  if(restore){note.textContent='正在恢复文字、心情和宠物……';const seq=++requestId;accept(await api('/api/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmation:'恢复小屋',expectedRevision:previewRevision,data:{...importedData,photos:[]}})}),seq)}else await mutate('import',{data:{...importedData,photos:[]}});
  if(isLegacy)try{localStorage.setItem('little-days-migrated','1')}catch{}await refreshNow();$('#modal').dataset.busy='0';close();toast(restore?'回忆、心情和宠物已恢复，照片已合并 ♡':'回忆已合并，宠物继续陪你们长大 ♡');
  }catch(e){note.textContent=e.message+' 已上传的照片会保留，重试不会重复导入。';btn.disabled=false}finally{$('#modal').dataset.busy='0'}};

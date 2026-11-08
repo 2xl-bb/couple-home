@@ -51,6 +51,63 @@ $('#preview-memory-book').onclick=()=>{if(!needReady())return;const month=$('#me
 async function downloadMemoryBook(month,data,names){const button=$('#download-memory-book'),note=$('#book-progress');button.disabled=true;$('#modal').dataset.busy='1';try{const photos=[];for(let i=0;i<data.photos.length;i++){note.textContent=`正在收藏照片 ${i+1} / ${data.photos.length}……`;const p=data.photos[i],res=await backendFetch('/api/photos/'+encodeURIComponent(p.id),{cache:'no-store',signal:AbortSignal.timeout(60000)});if(!res.ok||!(res.headers.get('content-type')||'').startsWith('image/'))throw new Error('有照片未能下载，本次没有生成纪念册。请重试。');photos.push({...p,data:await blobData(await res.blob())})}const section=(title,html)=>html?`<section><h2>${title}</h2>${html}</section>`:'';const html='<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(month+' 我们的小日子')+'</title><style>body{margin:0;background:#fbf7ef;color:#634e43;font:16px/1.9 system-ui,sans-serif}main{max-width:850px;margin:auto;padding:50px 24px}header{text-align:center;padding:45px 0;border-bottom:1px solid #decfc1}h1,h2{font-family:Georgia,serif;font-weight:400}h1{font-size:40px}section{margin-top:45px}article,figure{break-inside:avoid;background:#fffdf8;padding:20px;border:1px solid #ebdfcf;border-radius:14px;margin:18px 0}p{white-space:pre-wrap}img{max-width:100%;max-height:580px;display:block;margin:auto;border-radius:8px}small,footer{color:#9a8372}button{padding:12px 20px;background:#886752;color:white;border:0;border-radius:8px;cursor:pointer}@media print{body{background:white}.print-help{display:none}main{padding:0}header{padding:20px 0}}@page{margin:16mm}</style><main><header><small>OUR LITTLE DAYS · MONTHLY MEMORIES</small><h1>'+esc(month.replace('-',' 年 ')+' 月')+'</h1><p>'+esc(names.join(' & '))+'</p><p>平凡的日子，因为有你，值得被好好收藏。</p></header><p class="print-help">这是一份离线纪念册，照片已包含在文件里。可使用浏览器菜单「打印 → 保存为 PDF」。</p>'+section('我们写下的故事',data.stories.map(s=>`<article><small>${esc(s.date)}</small><h3>${esc(s.title)}</h3><p>${esc(s.text)}</p></article>`).join(''))+section('想留住的画面',photos.map(p=>`<figure><img src="${p.data}" alt="${esc(p.caption)}"><figcaption>${esc(p.caption)}</figcaption></figure>`).join(''))+section('一起实现的小心愿',data.wishes.map(w=>`<article>✓ ${esc(w.text)}</article>`).join(''))+section('慢慢懂你的答案',data.daily.map(([day,row])=>`<article><small>${esc(day)}</small><h3>${esc(row.question)}</h3>${[1,2].map(k=>`<p>${esc(names[k-1])}：${esc(row.answers[k]?.text)}</p>`).join('')}</article>`).join(''))+section('约定与心意',data.dates.map(e=>`<article>${esc(e.date)} · ${esc(e.title)}<p>${esc(e.note)}</p></article>`).join('')+data.coupons.map(c=>`<article>已兑现：${esc(c.title)}<p>${esc(c.note)}</p></article>`).join(''))+section('一起照顾的小日子',data.care.map(l=>`<article>${esc(l.actor)}${esc(careWords[l.action]||'陪伴了它')}<br><small>${new Date(l.at).toLocaleString('zh-CN')}</small></article>`).join(''))+'<footer><p>照片按上传月份整理；照顾日记限当前保留的最近记录。未记录完成时间的旧心愿、未揭晓问答及信件未收入。</p><p>我们的小日子 · 下一段回忆，等我们一起写。</p></footer></main></html>';const url=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=`我们的小日子-${month}-月度回忆册.html`;a.className='outline';a.textContent='点击保存离线纪念册 ↓';note.after(a);a.click();$('#modal').addEventListener('close',()=>URL.revokeObjectURL(url),{once:true});note.textContent='纪念册已生成。手机可点击上方链接保存，打开后可打印为 PDF。'}catch(e){note.textContent=e.message}finally{button.disabled=false;$('#modal').dataset.busy='0'}}
 window.LITTLE_DAYS_FEATURES_READY=true;renderTogether();
 
+const truthDareQuestions={
+ truth:['说出对方最让你心动的一个瞬间。','你觉得我们之间最大的默契是什么？','分享一件你一直想和对方一起做的小事。','最近一次觉得“有你真好”是什么时候？','用三个词形容你眼中的我们。','说一个你很喜欢、但还没告诉对方的小习惯。'],
+ dare:['为对方选一首歌，哼出最喜欢的一句。','模仿对方的一个招牌动作，让对方猜一猜。','给对方写一句今天专属的夸奖。','一起摆一个有趣的合照姿势。','如果双方都愿意，给对方一个轻轻的吻；也可以击掌或换题。','闭上眼睛，让对方选一口喜欢的零食给你；不方便时可以换题。']
+};
+const truthDareDiceFaces=['⚀','⚁','⚂','⚃','⚄','⚅'];
+let truthDareRound=0,lastTruthDareByType={truth:'',dare:''};
+function drawTruthDare(type){
+ const pool=truthDareQuestions[type],choices=pool.filter(question=>question!==lastTruthDareByType[type]);
+ const question=choices[Math.floor(Math.random()*choices.length)];
+ lastTruthDareByType[type]=question;
+ $('#truth-dare-kind').textContent=type==='truth'?'💬 真心话':'🔥 大冒险';
+ $('#truth-dare-question').textContent=question;
+ $('#truth-dare-result').hidden=false;
+ $('#truth-dare-custom-note').textContent='';
+ $('#truth-dare-custom').value='';
+}
+function openTruthDare(){
+ if(!needReady())return;
+ truthDareRound++;
+ lastTruthDareByType={truth:'',dare:''};
+ let selectedType='truth';
+ modal('🎲 双人真心话大冒险','<div class="truth-dare"><p class="truth-dare-caption">两个人各掷一颗骰子，比出今天的赢家。</p><div class="truth-dare-duel"><article class="truth-dare-player"><span id="truth-dare-player-1">你</span><strong id="truth-dare-die-1" class="truth-dare-die" aria-label="等待掷骰">⚄</strong><small>成员一</small></article><span class="truth-dare-versus">VS</span><article class="truth-dare-player"><span id="truth-dare-player-2">TA</span><strong id="truth-dare-die-2" class="truth-dare-die" aria-label="等待掷骰">⚄</strong><small>成员二</small></article></div><p id="truth-dare-status" class="truth-dare-status" role="status" aria-live="polite">准备好了吗？</p><button type="button" class="primary" id="truth-dare-roll">掷骰子</button><div id="truth-dare-types" class="truth-dare-actions" hidden><button type="button" class="primary" id="truth-dare-truth">💬 真心话</button><button type="button" class="outline" id="truth-dare-dare">🔥 大冒险</button></div><section id="truth-dare-challenge" class="truth-dare-challenge" hidden><article id="truth-dare-result" class="truth-dare-result"><span id="truth-dare-kind"></span><p id="truth-dare-question"></p></article><button type="button" class="text-button" id="truth-dare-change">换一题 ↻</button><label class="truth-dare-custom-label" for="truth-dare-custom">想自己出题？</label><textarea id="truth-dare-custom" maxlength="300" placeholder="输入想问的问题，或想指定的惩罚……"></textarea><p id="truth-dare-custom-note" class="truth-dare-note" role="status"></p><button type="button" class="outline" id="truth-dare-custom-send">自定义要求 / 出题</button></section><p class="truth-dare-note">任何一方都可以跳过或换题，不必勉强。开心最重要 ♡</p></div>');
+ const playerOne=$('#truth-dare-player-1'),playerTwo=$('#truth-dare-player-2');
+ if(me?.slot===2){playerOne.textContent='TA';playerTwo.textContent='你'}
+ $('#truth-dare-roll').onclick=()=>{
+  const round=++truthDareRound,rollButton=$('#truth-dare-roll'),dieOne=$('#truth-dare-die-1'),dieTwo=$('#truth-dare-die-2');
+  const first=Math.floor(Math.random()*6)+1,second=Math.floor(Math.random()*6)+1;
+  dieOne.classList.remove('is-rolling');dieTwo.classList.remove('is-rolling');void dieOne.offsetWidth;
+  dieOne.classList.add('is-rolling');dieTwo.classList.add('is-rolling');rollButton.disabled=true;
+  $('#truth-dare-types').hidden=true;$('#truth-dare-challenge').hidden=true;
+  $('#truth-dare-status').textContent='骰子滚动中……';
+  setTimeout(()=>{
+   if(round!==truthDareRound||!$('#modal').open)return;
+   dieOne.classList.remove('is-rolling');dieTwo.classList.remove('is-rolling');
+   dieOne.textContent=truthDareDiceFaces[first-1];dieTwo.textContent=truthDareDiceFaces[second-1];
+   dieOne.setAttribute('aria-label',`点数 ${first}`);dieTwo.setAttribute('aria-label',`点数 ${second}`);
+   rollButton.disabled=false;rollButton.textContent='再掷一次';
+   if(first===second){$('#truth-dare-status').textContent=`平局（${first} 比 ${second}），再掷一次。`;return}
+   const currentWon=me?.slot===2?second>first:first>second;
+   $('#truth-dare-status').textContent=currentWon?'🎉 你赢了！请指定惩罚。':'😭 你输了，准备接受惩罚。TA 可以选择题目类型。';
+   $('#truth-dare-types').hidden=false;rollButton.hidden=true;
+  },600);
+ };
+ $('#truth-dare-truth').onclick=()=>{selectedType='truth';$('#truth-dare-challenge').hidden=false;drawTruthDare(selectedType)};
+ $('#truth-dare-dare').onclick=()=>{selectedType='dare';$('#truth-dare-challenge').hidden=false;drawTruthDare(selectedType)};
+ $('#truth-dare-change').onclick=()=>drawTruthDare(selectedType);
+ $('#truth-dare-custom-send').onclick=()=>{
+  const question=$('#truth-dare-custom').value.trim();
+  if(!question){$('#truth-dare-custom-note').textContent='先写下一道题目或一个小惩罚吧。';return}
+  $('#truth-dare-kind').textContent='✍️ 自定义出题';
+  $('#truth-dare-question').textContent=question;
+  $('#truth-dare-custom-note').textContent='这道题已经换成你的自定义内容 ♡';
+ };
+}
+window.LittleDaysTruthDare={open:openTruthDare,draw:drawTruthDare,questions:truthDareQuestions};
+document.addEventListener('click',event=>{const trigger=event.target instanceof Element?event.target.closest('[data-open-truth-dare]'):null;if(trigger){event.preventDefault();openTruthDare()}});
+
 // Hash routes keep each room on its own page, including on static GitHub Pages.
 (function setupRoomPages(){
  const titles={home:'小屋首页',stories:'我们的故事',album:'回忆相册',travel:'🗺 旅行足迹',wishes:'心愿清单',letters:'悄悄话',together:'双人日常',corners:'彼此的小档案',book:'月度回忆册'};
@@ -72,7 +129,7 @@ window.LITTLE_DAYS_FEATURES_READY=true;renderTogether();
  const aliases={'mood-today':'home','little-corners':'corners'};
  const pageFor=hash=>{const key=hash.replace(/^#\/?/,'');return Object.hasOwn(titles,key)?key:Object.hasOwn(aliases,key)?aliases[key]:'home'};
  // Existing in-page links and shared bookmarks continue to open the right room.
- document.querySelectorAll('a[href^="#"]').forEach(a=>{const hash=a.getAttribute('href');if(hash==='#mood-today')return;a.setAttribute('href','#/'+pageFor(hash))});
+ document.querySelectorAll('a[href^="#"]').forEach(a=>{const hash=a.getAttribute('href');if(hash==='#mood-today'||a.dataset.openTruthDare!==undefined)return;a.setAttribute('href','#/'+pageFor(hash))});
  let current='';
  function showPage(){const hash=location.hash,page=pageFor(hash),changed=page!==current;current=page;
  document.querySelectorAll('[data-page]').forEach(el=>{el.hidden=el.dataset.page!==page});

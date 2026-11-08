@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
 
 export const roomState = sqliteTable('room_state', {
   id: integer('id').primaryKey(),
@@ -41,6 +42,20 @@ export const travelFootprints = sqliteTable('travel_footprints', {
   color: text('color').notNull(),
   createdAt: integer('created_at').notNull(),
 });
+
+export const truthDareGames = sqliteTable('truth_dare_games', {
+  id: text('id').primaryKey(),
+  creatorId: text('creator_id').notNull(),
+  partnerId: text('partner_id').notNull(),
+  p1Roll: integer('p1_roll'),
+  p2Roll: integer('p2_roll'),
+  status: text('status').notNull(),
+  loserId: text('loser_id'),
+  choiceType: text('choice_type'),
+  questionText: text('question_text'),
+  createdAt: integer('created_at').notNull(),
+}, table => [uniqueIndex('truth_dare_games_one_active_idx')
+  .on(sql`(1)`).where(sql`${table.status} <> 'finished'`)]);
 
 export const photoAi = sqliteTable('photo_ai', {
   photoId: text('photo_id').primaryKey().references(() => photos.id, { onDelete: 'cascade' }),

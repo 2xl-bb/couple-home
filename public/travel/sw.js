@@ -1,6 +1,6 @@
 // 足迹地图 · Service Worker（让应用可以离线使用、可安装）
 const CACHE_PREFIX = 'couple-home-travel-';
-const CACHE = CACHE_PREFIX + 'v2';
+const CACHE = CACHE_PREFIX + 'v3';
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './vendor/leaflet.js', './vendor/leaflet.css'];
 
 // 安装：预缓存核心文件
@@ -20,7 +20,8 @@ self.addEventListener('activate', (e) => {
 //   - 其他资源（图标、瓦片等）：缓存优先，离线也能用
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  if (new URL(e.request.url).origin !== self.location.origin) return;
+  const url = new URL(e.request.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
   if (e.request.mode === 'navigate') {
     e.respondWith(
       fetch(e.request).then((res) => {

@@ -14,8 +14,13 @@ test('travel footprint subsite has its own explicitly scoped PWA',async()=>{
   ]);
   assert.match(page,/serviceWorker\.register\('\.\/sw\.js', \{ scope: '\.\/' \}\)/);
   assert.match(page,/href="\.\/vendor\/leaflet\.css"/);assert.match(page,/src="\.\/vendor\/leaflet\.js"/);assert.doesNotMatch(page,/jsdelivr/);
+  assert.match(page,/fetch\('\/api\/home', \{[\s\S]*credentials: 'same-origin'/);
+  assert.match(page,/photo\.latitude/);assert.match(page,/photo\.longitude/);assert.match(page,/wgs2gcj\(group\.lat, group\.lng\)/);
+  assert.match(page,/\/api\/photos\/' \+ encodeURIComponent\(photo\.id\)/);assert.match(page,/function groupHomePhotos/);
+  assert.match(page,/homePhotosButton\.addEventListener\('click'/);assert.match(page,/loadHomePhotoMarkers\(\);/);
   assert.match(worker,/CACHE_PREFIX = 'couple-home-travel-'/);
-  assert.match(worker,/CACHE = CACHE_PREFIX \+ 'v2'/);
+  assert.match(worker,/CACHE = CACHE_PREFIX \+ 'v3'/);
+  assert.match(worker,/url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(worker,/k\.startsWith\(CACHE_PREFIX\) && k !== CACHE/);
   assert.match(worker,/\.\/vendor\/leaflet\.js/);assert.match(worker,/\.\/vendor\/leaflet\.css/);assert.match(worker,/origin !== self\.location\.origin/);
   assert.deepEqual(JSON.parse(manifest).scope,'/travel/');
@@ -31,6 +36,6 @@ test('Render build serves the travel app and its PWA files outside the login bou
       const response=await app.dispatch(new Request(origin+path));assert.equal(response.status,200,path);assert.match(response.headers.get('content-type'),new RegExp('^'+type.replace('+','\\+')));assert.ok((await response.arrayBuffer()).byteLength>0,path);
     }
     assert.equal((await app.dispatch(new Request(origin+'/travel/vendor/leaflet.js.map'))).status,404);
-    assert.match(travelContentSecurityPolicy(),/script-src 'self' 'unsafe-inline'/);assert.match(travelContentSecurityPolicy(),/https:\/\/\*\.is\.autonavi\.com/);assert.match(travelContentSecurityPolicy(),/https:\/\/nominatim\.openstreetmap\.org/);assert.doesNotMatch(travelContentSecurityPolicy(),/jsdelivr/);
+    assert.match(travelContentSecurityPolicy(),/script-src 'self' 'unsafe-inline'/);assert.match(travelContentSecurityPolicy(),/img-src 'self'/);assert.match(travelContentSecurityPolicy(),/connect-src 'self'/);assert.match(travelContentSecurityPolicy(),/https:\/\/\*\.is\.autonavi\.com/);assert.match(travelContentSecurityPolicy(),/https:\/\/nominatim\.openstreetmap\.org/);assert.doesNotMatch(travelContentSecurityPolicy(),/jsdelivr/);
   }finally{await app.close();await rm(dataDir,{recursive:true,force:true})}
 });

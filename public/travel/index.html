@@ -52,6 +52,14 @@
   .fp-popup .n { font-size: 13px; margin-top: 4px; }
   .fp-popup .del { margin-top: 8px; color: #b23a2e; font-size: 12px; cursor: pointer; text-decoration: underline; }
   .leaflet-popup-content-wrapper { border-radius: 12px; }
+  .home-photo-marker { background: transparent !important; border: 0 !important; }
+  .home-photo-marker span { display:grid;place-items:center;width:34px;height:34px;border:3px solid #fff;border-radius:50%;background:#557b91;color:#fff;font-size:13px;font-weight:700;box-shadow:0 2px 10px #263b4d70; }
+  .home-photo-popup { min-width:220px;max-width:320px; }
+  .home-photo-popup h3 { margin:0 0 8px;font-size:14px; }
+  .home-photo-popup .home-photo-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:250px;overflow:auto; }
+  .home-photo-popup button { min-width:0;padding:0;border:0;background:transparent;text-align:left;cursor:pointer; }
+  .home-photo-popup img { display:block;width:100%;height:68px;object-fit:cover;border-radius:6px;background:var(--line); }
+  .home-photo-popup small { display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-soft);font-size:10px; }
 
   #topbar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.92); backdrop-filter: blur(6px); padding: 8px 10px 8px 16px; border-radius: 30px; box-shadow: 0 4px 16px rgba(0,0,0,.08); max-width: 96vw; overflow-x: auto; }
   #logo { font-family:"STSong","SimSun",serif; font-size: 18px; font-weight: 700; letter-spacing: 2px; cursor: pointer; user-select: none; white-space: nowrap; }
@@ -251,6 +259,7 @@
   <span id="logo" title="点我 5 次有惊喜">⛰ 行舟记</span>
   <button id="listBtn">📋 足迹本</button>
   <button id="albumBtn">📷 相册</button>
+  <button id="homePhotosBtn" type="button" aria-pressed="true">📍 主站照片</button>
   <button id="achBtn">🏆 成就</button>
   <button id="planBtn">🗺 规划</button>
   <button id="posterBtn">🖼 海报</button>
@@ -373,6 +382,18 @@
 const map = L.map('map', { zoomControl: true }).setView([27.5, 111.5], 6);
 map.doubleClickZoom.disable();
 L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', { subdomains: '1234', attribution: '© 高德地图', maxZoom: 19, maxNativeZoom: 18 }).addTo(map);
+const homePhotoLayer = L.layerGroup().addTo(map);
+let homePhotoCount = 0;
+const homePhotosButton = document.getElementById('homePhotosBtn');
+homePhotosButton.addEventListener('click', () => {
+  if (map.hasLayer(homePhotoLayer)) {
+    map.removeLayer(homePhotoLayer);
+    homePhotosButton.setAttribute('aria-pressed', 'false');
+  } else {
+    homePhotoLayer.addTo(map);
+    homePhotosButton.setAttribute('aria-pressed', 'true');
+  }
+});
 
 function wgs2gcj(lat, lng) {
   const a = 6378245.0, ee = 0.00669342162296594323;
@@ -416,6 +437,92 @@ function drawPath() {
 const MARKER_COLORS = ['#e8823c', '#e0a93c', '#e86a5c', '#d97a9a', '#8fa878', '#7a86c8', '#c07a9a', '#5aa897', '#d9a05c', '#b08968'];
 
 function esc(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function groupHomePhotos(photos) {
+  const groups = new Map();
+  for (const photo of photos) {
+    if (!photo || typeof photo.id !== 'string' || !photo.id) continue;
+    if (photo.latitude === null || photo.latitude === undefined || photo.longitude === null || photo.longitude === undefined) continue;
+    const lat = Number(photo.latitude), lng = Number(photo.longitude);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) continue;
+    const key = lat.toFixed(4) + ',' + lng.toFixed(4);
+    if (!groups.has(key)) groups.set(key, {lat, lng, photos: []});
+    groups.get(key).photos.push(photo);
+  }
+  return [...groups.values()];
+}
+function openHomePhoto(photo) {
+  const lightbox = document.getElementById('lightbox');
+  document.getElementById('lightImg').src = photo.url;
+  document.getElementById('lightTitle').textContent = photo.caption || photo.location_name || '主站相册';
+  document.getElementById('lightSub').textContent = photo.location_name || '';
+  lightbox.classList.add('show');
+}
+function renderHomePhotoMarkers(photos) {
+  homePhotoLayer.clearLayers();
+  const groups = groupHomePhotos(photos);
+  homePhotoCount = groups.reduce((count, group) => count + group.photos.length, 0);
+  homePhotosButton.textContent = '📍 主站照片' + (homePhotoCount ? ' (' + homePhotoCount + ')' : '');
+  for (const group of groups) {
+    const point = wgs2gcj(group.lat, group.lng);
+    const icon = L.divIcon({
+      className: 'home-photo-marker',
+      html: '<span>' + group.photos.length + '</span>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    });
+    const marker = L.marker([point.lat, point.lng], {icon, riseOnHover: true}).addTo(homePhotoLayer);
+    const popup = document.createElement('div');
+    popup.className = 'home-photo-popup';
+    const title = document.createElement('h3');
+    title.textContent = group.photos.length + ' 张主站照片';
+    popup.append(title);
+    const grid = document.createElement('div');
+    grid.className = 'home-photo-grid';
+    for (const photo of group.photos) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.title = photo.caption || photo.location_name || '查看照片';
+      const image = document.createElement('img');
+      image.src = '/api/photos/' + encodeURIComponent(photo.id);
+      image.alt = photo.caption || '主站相册照片';
+      image.loading = 'lazy';
+      const caption = document.createElement('small');
+      caption.textContent = photo.caption || photo.location_name || '';
+      card.append(image, caption);
+      card.addEventListener('click', () => openHomePhoto(photo));
+      grid.append(card);
+    }
+    popup.append(grid);
+    marker.bindPopup(popup, {maxWidth: 340});
+  }
+}
+async function loadHomePhotoMarkers() {
+  homePhotosButton.disabled = true;
+  try {
+    const response = await fetch('/api/home', {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {Accept: 'application/json'}
+    });
+    if (response.status === 401 || response.status === 403) {
+      homePhotosButton.title = '请先在主站登录后查看私有照片';
+      toast('请先在主站登录，再查看主站相册照片。');
+      return;
+    }
+    if (!response.ok) throw new Error('主站照片暂时无法加载（HTTP ' + response.status + '）。');
+    const data = await response.json();
+    if (!Array.isArray(data?.state?.photos)) throw new Error('主站没有返回有效的照片列表。');
+    renderHomePhotoMarkers(data.state.photos);
+    homePhotosButton.title = homePhotoCount ? '显示或隐藏主站 GPS 照片' : '主站还没有带 GPS 的照片';
+    if (!homePhotoCount) toast('主站相册还没有带 GPS 坐标的照片。');
+  } catch (error) {
+    homePhotosButton.title = error.message || '主站照片暂时无法加载';
+    toast(homePhotosButton.title);
+  } finally {
+    homePhotosButton.disabled = false;
+  }
+}
 function makeMarker(fp) {
   const color = fp.color || MARKER_COLORS[0];
   const icon = L.divIcon({
@@ -1069,6 +1176,7 @@ function buildGuide(p) {
   renderList(); renderAlbum();
   updateSplashCount();
   checkAchievements();
+  loadHomePhotoMarkers();
   const greet = timeGreeting();
   if (footprints.length === 0) { setTimeout(() => toast(greet + '｜点右下角 ＋ 点亮第一个地方 👣', 3600), 800); }
   else { setTimeout(() => toast(greet + '｜你已点亮 ' + footprints.length + ' 处人间 ✨', 3000), 600); }

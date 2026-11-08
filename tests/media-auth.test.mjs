@@ -14,6 +14,8 @@ test('browser policy permits only the configured private R2 bucket for video tra
   const policy=contentSecurityPolicy(r2);
   assert.match(policy,new RegExp(`connect-src[^;]+${r2.replaceAll('.','\\.')}`));
   assert.match(policy,new RegExp(`media-src[^;]+${r2.replaceAll('.','\\.')}`));
+  assert.match(policy,/img-src[^;]+https:\/\/\*\.tile\.openstreetmap\.org/);
+  assert.match(policy,/connect-src[^;]+https:\/\/nominatim\.openstreetmap\.org/);
   assert.doesNotMatch(contentSecurityPolicy('https://evil.example'),/evil\.example/);
 });
 

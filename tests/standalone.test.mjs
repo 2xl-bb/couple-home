@@ -116,7 +116,14 @@ test('standalone server works with no Cloudflare or ChatGPT identity', async t =
     assert.equal((await get('/photos/' + photoId)).status, 404);
     assert.equal((await get('/api/photos/' + photoId, partnerCookie)).status, 200);
     const comment=await call('/api/photos/'+photoId+'/caption',{method:'POST',headers:{Origin:origin,Cookie:partnerCookie,'Content-Type':'application/json'},body:JSON.stringify({text:'后来补上的一句话'})});assert.equal(comment.status,201,await comment.clone().text());
+    const locationPath='/api/photos/'+photoId+'/location',locationPayload={latitude:32.0603,longitude:118.7969,locationName:'南京'};
+    assert.equal((await call(locationPath,{method:'PATCH',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(locationPayload)})).status,401);
+    assert.equal((await call(locationPath,{method:'PATCH',headers:{Origin:'https://evil.test',Cookie:ownerCookie,'Content-Type':'application/json'},body:JSON.stringify(locationPayload)})).status,403);
+    assert.equal((await call(locationPath,{method:'PATCH',headers:{Origin:origin,Cookie:ownerCookie,'Content-Type':'application/json'},body:JSON.stringify({...locationPayload,latitude:91})})).status,400);
+    const location=await call(locationPath,{method:'PATCH',headers:{Origin:origin,Cookie:partnerCookie,'Content-Type':'application/json'},body:JSON.stringify(locationPayload)});
+    assert.equal(location.status,200,await location.clone().text());assert.deepEqual(await location.json(),{ok:true,id:photoId,latitude:locationPayload.latitude,longitude:locationPayload.longitude,location_name:'南京'});
     const shared=(await(await get('/api/home',ownerCookie)).json()).state.photos.find(photo=>photo.id===photoId);assert.deepEqual(shared.captions.map(item=>item.text),['一起看海','后来补上的一句话']);assert.equal(shared.captions[1].authorSlot,2);
+    assert.equal(shared.latitude,locationPayload.latitude);assert.equal(shared.longitude,locationPayload.longitude);assert.equal(shared.location_name,'南京');
     await assert.rejects(() => localBucket(dataDir).put('../escape', jpeg));
     const stored=app.db.raw.prepare('SELECT object_key FROM photos WHERE id=?').get(photoId);
     assert.deepEqual(await readFile(resolve(dataDir, stored.object_key)), jpeg);

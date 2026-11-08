@@ -111,6 +111,8 @@ dialog{position:fixed;inset:auto 0 0;margin:0;width:100%;max-width:100%;max-heig
 }
 
 .photo-date-edit{display:block;margin:10px auto 4px;padding:7px 11px;border-radius:999px;background:#f3e9dc;color:#795f4d;font-size:12px}.photo-date-edit:hover{background:#ead9c9;color:var(--rose)}
+.photo-location-edit{display:block;max-width:100%;margin:7px auto 12px;padding:8px 13px;border:1px solid #e7d7c6;border-radius:999px;background:#fffaf3;color:#795f4d;font-size:13px;overflow-wrap:anywhere}.photo-location-edit:hover{background:#f3e9dc;color:var(--rose)}.photo-location-picker{text-align:left}.photo-location-picker>#photo-location-map{height:360px;margin:12px 0;border:1px solid #e7d7c6;border-radius:14px;overflow:hidden;background:#eee8dd}.photo-location-picker .form-field{margin:12px 0}.photo-location-picker input{width:100%;min-height:44px;padding:10px 12px;border:1px solid #e3d1bf;border-radius:10px;background:#fffdf9;color:var(--ink);font:inherit}.photo-location-picker>#photo-location-save{display:block;width:100%;margin-top:12px}.photo-location-attribution{margin-top:8px;color:#9a8470;font-size:10px}.photo-map-pin{background:transparent;border:0}.photo-map-pin span{display:grid;place-items:center;width:36px;height:42px;font-size:34px;filter:drop-shadow(0 2px 3px #0006)}
+@media(max-width:600px){.photo-location-picker>#photo-location-map{height:52vh;min-height:280px;max-height:440px}}
 
 /* Minimal year/month album timeline. Closed months do not create photo nodes. */
 .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}

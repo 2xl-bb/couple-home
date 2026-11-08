@@ -25,6 +25,7 @@ import * as truthDareAnswer from '../app/api/games/truth-dare/[id]/answer/route.
 import * as photo from '../app/api/photos/[id]/route.ts';
 import * as photoCaption from '../app/api/photos/[id]/caption/route.ts';
 import * as photoDate from '../app/api/photos/[id]/date/route.ts';
+import * as photoLocation from '../app/api/photos/[id]/location/route.ts';
 import * as albumAIRoutes from '../app/api/album-ai/route.ts';
 import * as albumSearch from '../app/api/album-search/route.ts';
 import * as videos from './video-routes.mjs';
@@ -47,8 +48,9 @@ const jsonError = (error, status) => Response.json({ error }, { status, headers:
 export function contentSecurityPolicy(videoOrigin) {
   const media = typeof videoOrigin === 'string' && /^https:\/\/[a-z0-9.-]+\.r2\.cloudflarestorage\.com$/.test(videoOrigin)
     ? ` ${videoOrigin}` : '';
-  return "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; " +
-    `connect-src 'self' data:${media}; media-src 'self' blob:${media}; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`;
+  return "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: blob: https://*.tile.openstreetmap.org; " +
+    `connect-src 'self' data: https://nominatim.openstreetmap.org${media}; media-src 'self' blob:${media}; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`;
 }
 
 export function travelContentSecurityPolicy() {
@@ -145,12 +147,13 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
       }
       const captionMatch = /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})\/caption$/.exec(url.pathname);
       const dateMatch = /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})\/date$/.exec(url.pathname);
-      const match = captionMatch || dateMatch || /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})$/.exec(url.pathname);
+      const locationMatch = /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})\/location$/.exec(url.pathname);
+      const match = captionMatch || dateMatch || locationMatch || /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})$/.exec(url.pathname);
       const travelPhotoMatch = /^\/api\/travel\/footprints\/([a-zA-Z0-9_-]{1,100})\/photos\/([a-f0-9-]{36})$/.exec(url.pathname);
       const travelFootprintMatch = /^\/api\/travel\/footprints\/([a-zA-Z0-9_-]{1,100})$/.exec(url.pathname);
       const truthDareMatch = /^\/api\/games\/truth-dare\/([a-f0-9-]{36})\/(roll|choice|question|answer)$/i.exec(url.pathname);
       const truthDareRoute = truthDareMatch ? {roll:truthDareRoll,choice:truthDareChoice,question:truthDareQuestion,answer:truthDareAnswer}[truthDareMatch[2]] : null;
-      const route = routes.get(url.pathname) || (truthDareRoute ? truthDareRoute : travelPhotoMatch ? travelFootprintPhoto : travelFootprintMatch ? travelFootprint : captionMatch ? photoCaption : dateMatch ? photoDate : match ? photo : null);
+      const route = routes.get(url.pathname) || (truthDareRoute ? truthDareRoute : travelPhotoMatch ? travelFootprintPhoto : travelFootprintMatch ? travelFootprint : captionMatch ? photoCaption : dateMatch ? photoDate : locationMatch ? photoLocation : match ? photo : null);
       if (route) {
         const handler = route[request.method];
         if (typeof handler !== 'function') return new Response(null, { status: 405, headers: { Allow: Object.keys(route).filter(x => /^[A-Z]+$/.test(x)).join(', ') } });

@@ -115,10 +115,69 @@ function renderAlbum(){
 }
 $('#album-sort').onclick=()=>{albumSort=albumSort==='desc'?'asc':'desc';resetAlbumTimeline();renderAlbum();loadPagesPhotos()};
 $('#photo-list').addEventListener?.('click',event=>{const button=event.target.closest?.('button');if(!button)return;const toggle=button.dataset.toggleAlbumMonth,more=button.dataset.moreAlbumMonth;if(toggle){event.preventDefault();if(albumOpenMonths.has(toggle))albumOpenMonths.delete(toggle);else{albumOpenMonths.clear();albumOpenMonths.add(toggle)}renderAlbum();loadPagesPhotos()}else if(more){event.preventDefault();albumMonthLimits.set(more,(albumMonthLimits.get(more)||ALBUM_MONTH_PAGE_SIZE)+ALBUM_MONTH_PAGE_SIZE);renderAlbum();loadPagesPhotos()}});
+function photoHasLocation(photo){return photo.latitude!==null&&photo.latitude!==undefined&&photo.latitude!==''&&photo.longitude!==null&&photo.longitude!==undefined&&photo.longitude!==''&&Number.isFinite(Number(photo.latitude))&&Number.isFinite(Number(photo.longitude))}
 function viewPhoto(id){
  const photos=sortedAlbumPhotos().map(p=>({...p}));let index=photos.findIndex(p=>p.id===id);if(index<0||!needReady())return;
- const draw=()=>{const p=photos[index];modal('这一刻，想和你再看一遍',`<div class="photo-viewer"><img data-photo-id="${esc(p.id)}" src="${photoSource(p.id)}" alt="${esc(p.caption||'我们的回忆')}"><button type="button" class="photo-date-edit" data-edit-photo-date="${esc(p.id)}">◷ ${new Date(photoTakenTime(p)).toLocaleDateString('zh-CN')} · 修改拍摄日期</button>${photoCaptionTimeline(p)}${p.ai?`<p class="photo-ai-description">AI 描述：${esc(p.ai.description)}</p>`:''}<div class="photo-viewer-nav"><button type="button" class="outline" id="photo-previous" ${index===0?'disabled':''}>← 上一张</button><span>${index+1} / ${photos.length}</span><button type="button" class="outline" id="photo-next" ${index===photos.length-1?'disabled':''}>下一张 →</button></div></div>`);$('#photo-previous').onclick=()=>{if(index>0){index--;draw()}};$('#photo-next').onclick=()=>{if(index<photos.length-1){index++;draw()}};loadPagesPhotos()};
+ const draw=()=>{const p=photos[index],hasLocation=photoHasLocation(p),location=hasLocation?`📍 ${esc(p.location_name||`${Number(p.latitude).toFixed(4)}, ${Number(p.longitude).toFixed(4)}`)} · 修改位置`:'📍 未标记位置（点击添加）';modal('这一刻，想和你再看一遍',`<div class="photo-viewer"><img data-photo-id="${esc(p.id)}" src="${photoSource(p.id)}" alt="${esc(p.caption||'我们的回忆')}"><button type="button" class="photo-date-edit" data-edit-photo-date="${esc(p.id)}">◷ ${new Date(photoTakenTime(p)).toLocaleDateString('zh-CN')} · 修改拍摄日期</button><button type="button" class="photo-location-edit" id="photo-location-edit">${location}</button>${photoCaptionTimeline(p)}${p.ai?`<p class="photo-ai-description">AI 描述：${esc(p.ai.description)}</p>`:''}<div class="photo-viewer-nav"><button type="button" class="outline" id="photo-previous" ${index===0?'disabled':''}>← 上一张</button><span>${index+1} / ${photos.length}</span><button type="button" class="outline" id="photo-next" ${index===photos.length-1?'disabled':''}>下一张 →</button></div></div>`);$('#photo-previous').onclick=()=>{if(index>0){index--;draw()}};$('#photo-next').onclick=()=>{if(index<photos.length-1){index++;draw()}};$('#photo-location-edit').onclick=()=>editPhotoLocation(p.id,async()=>{await refreshNow();const updated=state.photos.find(photo=>photo.id===p.id);if(updated)photos[index]={...updated};draw();toast('照片位置已更新 ♡')});loadPagesPhotos()};
  draw();const keyboard=e=>{if(!$('#modal').open||!$('#photo-next'))return;if(e.key==='ArrowLeft'&&index>0){e.preventDefault();index--;draw()}if(e.key==='ArrowRight'&&index<photos.length-1){e.preventDefault();index++;draw()}};$('#modal').addEventListener('keydown',keyboard);$('#modal').addEventListener('close',()=>$('#modal').removeEventListener('keydown',keyboard),{once:true});
+}
+let photoMapLibrary;
+function loadPhotoMapLibrary(){
+ if(window.L)return Promise.resolve(window.L);
+ if(!photoMapLibrary)photoMapLibrary=new Promise((resolve,reject)=>{
+  if(!document.querySelector('#photo-leaflet-css')){const link=document.createElement('link');link.id='photo-leaflet-css';link.rel='stylesheet';link.href='/travel/vendor/leaflet.css';document.head.append(link)}
+  const script=document.createElement('script');script.src='/travel/vendor/leaflet.js';script.onload=()=>window.L?resolve(window.L):reject(new Error('地图组件没有正确加载。'));script.onerror=()=>reject(new Error('地图组件加载失败，请检查网络后重试。'));document.head.append(script);
+ }).catch(error=>{photoMapLibrary=null;throw error});
+ return photoMapLibrary;
+}
+function editPhotoLocation(id,onSaved){
+ if(!needReady())return;
+ const photo=state.photos.find(item=>item.id===id);if(!photo)return toast('照片不存在。');
+ const hasLocation=photoHasLocation(photo);
+ modal('📍 标记照片位置',`<div class="photo-location-picker"><p class="form-help">点击地图放置图钉，也可以拖动图钉微调。地图来自 OpenStreetMap。</p><div id="photo-location-map" role="application" aria-label="照片位置地图"></div><p id="photo-location-coordinates" class="form-help">正在加载地图……</p><label class="form-field">地点名称<input id="photo-location-name" type="text" maxlength="160" value="${esc(photo.location_name||'')}" placeholder="例如：南京、玄武湖"></label><p id="photo-location-status" class="form-help" role="status" aria-live="polite">选择位置后会尝试自动识别城市；也可以手动填写地点名称。</p><p class="photo-location-attribution">地图 © OpenStreetMap contributors · 地名由 Nominatim 提供</p><button id="photo-location-save" type="button" class="primary" disabled>保存照片位置</button></div>`);
+ const dialog=$('#modal'),mapNode=$('#photo-location-map'),coordinates=$('#photo-location-coordinates'),locationInput=$('#photo-location-name'),statusNode=$('#photo-location-status'),save=$('#photo-location-save');
+ let map=null,marker=null,selected=null,lookupId=0,controller=null,lastLookupAt=0;
+ const cleanup=()=>{controller?.abort();map?.remove();map=null};
+ dialog.addEventListener('close',cleanup,{once:true});
+ const updatePoint=async(latlng,lookup=true)=>{
+  selected={latitude:Number(latlng.lat),longitude:Number(latlng.lng)};
+  coordinates.textContent=`纬度 ${selected.latitude.toFixed(6)} · 经度 ${selected.longitude.toFixed(6)}`;
+  save.disabled=false;
+  if(!lookup)return;
+  const current=++lookupId;controller?.abort();const requestController=new AbortController();controller=requestController;
+  const delay=Math.max(0,1100-(Date.now()-lastLookupAt));if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
+  if(current!==lookupId||requestController.signal.aborted)return;
+  lastLookupAt=Date.now();statusNode.textContent='正在识别附近地点……';
+  try{
+   const url=new URL('https://nominatim.openstreetmap.org/reverse');url.search=new URLSearchParams({format:'jsonv2',lat:String(selected.latitude),lon:String(selected.longitude),zoom:'10',addressdetails:'1', 'accept-language':'zh-CN'}).toString();
+   const response=await fetch(url,{headers:{Accept:'application/json'},referrerPolicy:'strict-origin',signal:requestController.signal});
+   if(!response.ok)throw new Error(`地点查询暂不可用（${response.status}）。`);
+   const result=await response.json(),address=result.address||{},name=address.city||address.town||address.village||address.municipality||address.county||address.state||String(result.display_name||'').split(',')[0];
+   if(current!==lookupId)return;
+   if(name){locationInput.value=name;statusNode.textContent=`已识别地点：${name}。你也可以手动修改名称。`}
+   else statusNode.textContent='附近没有识别到城市名称，请手动填写地点。';
+  }catch(error){if(error.name!=='AbortError'&&current===lookupId)statusNode.textContent=`${error.message} 仍可手动填写地点名称后保存。`}
+ };
+ loadPhotoMapLibrary().then(L=>{
+  if(!dialog.open||!mapNode.isConnected)return;
+  map=L.map(mapNode,{scrollWheelZoom:true}).setView(hasLocation?[Number(photo.latitude),Number(photo.longitude)]:[35.8617,104.1954],hasLocation?13:4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>'}).addTo(map);
+  const icon=L.divIcon({className:'photo-map-pin',html:'<span aria-hidden="true">📍</span>',iconSize:[36,42],iconAnchor:[18,38]});
+  const place=(latlng,lookup=true)=>{if(marker)marker.setLatLng(latlng);else marker=L.marker(latlng,{draggable:true,icon}).addTo(map).on('dragend',()=>updatePoint(marker.getLatLng()));updatePoint(latlng,lookup)};
+  map.on('click',event=>place(event.latlng));
+  if(hasLocation)place(L.latLng(Number(photo.latitude),Number(photo.longitude)),false);
+  requestAnimationFrame(()=>map?.invalidateSize());
+ }).catch(error=>{statusNode.textContent=error.message;coordinates.textContent='地图未能显示，请重试。'});
+ save.onclick=async()=>{
+  const name=locationInput.value.trim();if(!selected)return statusNode.textContent='请先在地图上点击选择一个位置。';if(!name)return statusNode.textContent='请填写地点名称后再保存。';
+  save.disabled=true;dialog.dataset.busy='1';statusNode.textContent='正在保存照片位置……';
+  try{
+   await api('/api/photos/'+encodeURIComponent(id)+'/location',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({...selected,locationName:name})});
+   dialog.dataset.busy='0';dialog.close();
+   try{await onSaved()}catch(error){toast(`位置已保存，但相册刷新失败：${error.message}`)}
+  }catch(error){statusNode.textContent=error.message;save.disabled=false}
+  finally{dialog.dataset.busy='0'}
+ };
 }
 function addPhotoCaption(id){if(!needReady())return;const captionId=uid(),createdAt=Date.now();modal('给这张照片补充一句');form('<label class="form-field">追加留言<textarea name="text" required maxlength="500" placeholder="写下后来想补充的细节……"></textarea></label><p class="form-help">新留言会追加在原配文下方，原来的文字不会被覆盖。</p>',async data=>{await api('/api/photos/'+encodeURIComponent(id)+'/caption',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:captionId,text:data.get('text'),createdAt})});await refreshNow();close();toast('补充文字已保存 ♡')},'photo-caption');$('#active-form button[type="submit"]').textContent='追加到照片 ♡'}
 function editPhotoDate(id){if(!needReady())return;const photo=state.photos.find(item=>item.id===id);if(!photo)return toast('照片不存在。');const value=new Date(photoTakenTime(photo)+8*3600e3).toISOString().slice(0,10);modal('修改拍摄日期');form(field('拍摄日期','takenDate','date',value,`required max="${today()}"`),async data=>{const takenAt=new Date(String(data.get('takenDate'))+'T12:00:00+08:00').toISOString();await api('/api/photos/'+encodeURIComponent(id)+'/date',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({takenAt})});resetAlbumTimeline();await refreshNow();close();toast('拍摄日期已更新 ♡')});$('#active-form button[type="submit"]').textContent='保存日期'}

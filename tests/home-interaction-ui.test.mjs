@@ -37,15 +37,19 @@ test('the game polls the shared API and renders each role-specific stage', () =>
     '#truth-dare-kind','#truth-dare-question','#truth-dare-result','#truth-dare-change','#truth-dare-custom',
     '#truth-dare-custom-label','#truth-dare-custom-send','#truth-dare-submit-system','#truth-dare-note',
     '#truth-dare-answer-section','#truth-dare-answer-input','#truth-dare-answer-submit',
-    '#truth-dare-answer-result','#truth-dare-answer-text','#truth-dare-answer-label'
+    '#truth-dare-answer-result','#truth-dare-answer-text','#truth-dare-answer-label',
+    '#truth-dare-chat-list','#truth-dare-chat-form','#truth-dare-chat-input','#truth-dare-chat-send'
   ];
   const nodes = Object.fromEntries(selectors.map(selector=>[selector,{
-    textContent:'',value:'',hidden:false,disabled:false,attributes:{},
-    setAttribute(name,value){this.attributes[name]=value}
+    textContent:'',value:'',hidden:false,disabled:false,attributes:{},children:[],scrollHeight:100,scrollTop:0,
+    setAttribute(name,value){this.attributes[name]=value},
+    append(...children){this.children.push(...children)},
+    replaceChildren(...children){this.children=children}
   }]));
   const context=vm.createContext({
     window:{},truthDareCurrent:null,truthDareQuestionKey:'',truthDareQuestionDraft:'',
-    $:selector=>nodes[selector],me:{slot:1},Math:{random:()=>.4,floor:Math.floor}
+    $:selector=>nodes[selector],me:{slot:1},Math:{random:()=>.4,floor:Math.floor},
+    document:{createElement:()=>({append(){},className:'',textContent:'',children:[],append(...children){this.children.push(...children)}})}
   });
   vm.runInContext(features.slice(start,end),context);
   const render=game=>context.truthDareShowGame(game);
@@ -78,13 +82,25 @@ test('the game polls the shared API and renders each role-specific stage', () =>
   assert.equal(nodes['#truth-dare-answer-result'].hidden,false);
   assert.equal(nodes['#truth-dare-start'].hidden,false);
   assert.equal(nodes['#truth-dare-start'].textContent,'开启下一局 ↻');
-  for(const endpoint of ['/api/games/truth-dare/active','/roll','/choice','/question','/answer'])assert.ok(features.includes(endpoint),endpoint);
+  render({...base,status:'finished',role:'p1',chatMessages:[
+    {id:'m1',senderRole:'p1',text:'我这边先掷！',timestamp:1000},
+    {id:'m2',senderRole:'p2',text:'好呀，等我一下',timestamp:2000}
+  ]});
+  const bubbles=nodes['#truth-dare-chat-list'].children;
+  assert.equal(bubbles.length,2);
+  assert.equal(bubbles[0].className,'truth-dare-chat-message is-mine');
+  assert.equal(bubbles[0].children[1].textContent,'我这边先掷！');
+  assert.equal(bubbles[1].className,'truth-dare-chat-message is-theirs');
+  assert.equal(nodes['#truth-dare-chat-list'].scrollTop,100);
+  assert.equal(nodes['#truth-dare-chat-form'].hidden,false);
+  for(const endpoint of ['/api/games/truth-dare/active','/roll','/choice','/question','/answer','/chat'])assert.ok(features.includes(endpoint),endpoint);
+  assert.match(features,/truthDareChatPending\.push\(message\)/);
   assert.match(features,/setInterval\(\(\)=>truthDareRefresh\(session\),3000\)/);
 });
 
 test('service worker cache version and resource URLs are refreshed', () => {
-  assert.match(sw, /couple-home-v12/);
-  assert.match(sw, /style\.css\?v=20261108-truth-answer/);
-  assert.match(sw, /app\.js\?v=20261108-truth-answer/);
-  assert.match(sw, /features\.js\?v=20261108-truth-answer/);
+  assert.match(sw, /couple-home-v14/);
+  assert.match(sw, /style\.css\?v=20261108-truth-chat/);
+  assert.match(sw, /app\.js\?v=20261108-photo-location/);
+  assert.match(sw, /features\.js\?v=20261108-truth-chat/);
 });

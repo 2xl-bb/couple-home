@@ -1,7 +1,7 @@
 import { context, json, parseObject } from './home-server';
 import { HomeError } from './home-domain.mjs';
 
-type GameRow = {
+export type GameRow = {
   id: string;
   creator_id: string;
   partner_id: string;
@@ -12,8 +12,36 @@ type GameRow = {
   choice_type: string | null;
   question_text: string | null;
   answer_text: string | null;
+  chat_messages: string;
   created_at: number;
 };
+
+type StoredChatMessage = {
+  id: string;
+  sender_id: string;
+  text: string;
+  timestamp: number;
+};
+
+export const MAX_CHAT_MESSAGES = 200;
+const isStoredChatMessage = (message: unknown): message is StoredChatMessage =>
+  !!message && typeof message === 'object' &&
+  'id' in message && typeof message.id === 'string' &&
+  'sender_id' in message && typeof message.sender_id === 'string' &&
+  'text' in message && typeof message.text === 'string' &&
+  'timestamp' in message && Number.isSafeInteger(message.timestamp);
+
+export function parseChatMessages(value: string | null | undefined): StoredChatMessage[] {
+  if (value == null) return [];
+  let messages: unknown[];
+  try { messages = JSON.parse(value); }
+  catch { throw new HomeError('对局聊天记录格式无效。', 500); }
+  if (!Array.isArray(messages) || messages.length > MAX_CHAT_MESSAGES) {
+    throw new HomeError('对局聊天记录格式无效。', 500);
+  }
+  if (!messages.every(isStoredChatMessage)) throw new HomeError('对局聊天记录格式无效。', 500);
+  return messages;
+}
 
 export async function readGame(req: Request) {
   if (Number(req.headers.get('content-length') || 0) > 4000) throw new HomeError('请求内容太大。', 413);
@@ -23,7 +51,7 @@ export async function readGame(req: Request) {
 }
 
 export async function findGame(db: Awaited<ReturnType<typeof context>>['db'], id: string) {
-  return db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,answer_text,created_at
+  return db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,answer_text,chat_messages,created_at
     FROM truth_dare_games WHERE id=?`).bind(id).first<GameRow>();
 }
 
@@ -42,12 +70,23 @@ export function publicGame(row: GameRow | null, userId: string) {
     choiceType: row.choice_type,
     questionText: row.question_text,
     answerText: row.answer_text,
+    chatMessages: parseChatMessages(row.chat_messages).map(message => {
+      if (message.sender_id !== row.creator_id && message.sender_id !== row.partner_id) {
+        throw new HomeError('对局聊天记录成员无效。', 500);
+      }
+      return {
+        id: message.id,
+        senderRole: message.sender_id === row.creator_id ? 'p1' : 'p2',
+        text: message.text,
+        timestamp: message.timestamp,
+      };
+    }),
     createdAt: Number(row.created_at),
   };
 }
 
 export async function currentGame(db: Awaited<ReturnType<typeof context>>['db'], userId: string) {
-  return db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,answer_text,created_at
+  return db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,answer_text,chat_messages,created_at
     FROM truth_dare_games
     WHERE creator_id=? OR partner_id=?
     ORDER BY CASE WHEN status <> 'finished' THEN 0 ELSE 1 END, created_at DESC, id DESC

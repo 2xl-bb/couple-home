@@ -1,6 +1,6 @@
 import { context, fail, json, requireSameOrigin } from '../../../../lib/home-server';
 import { HomeError } from '../../../../lib/home-domain.mjs';
-import { currentGame, publicGame, readGame } from '../../../../lib/truth-dare-games';
+import { currentGame, publicGame, readGame, type GameRow } from '../../../../lib/truth-dare-games';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,15 +27,15 @@ export async function POST(req: Request) {
       WHERE NOT EXISTS (SELECT 1 FROM truth_dare_games WHERE status <> 'finished')`)
       .bind(id, c.member.userId, partner.user_id, c.now).run();
     if (!result.meta.changes) {
-      const active = await c.db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,created_at
+      const active = await c.db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,answer_text,chat_messages,created_at
         FROM truth_dare_games WHERE status <> 'finished' ORDER BY created_at DESC,id DESC LIMIT 1`)
-        .first();
+        .first<GameRow>();
       if (!active) throw new HomeError('暂时无法创建对局，请重试。', 409);
       return json({ game: publicGame(active, c.member.userId), existed: true });
     }
 
-    const game = await c.db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,created_at
-      FROM truth_dare_games WHERE id=?`).bind(id).first();
+    const game = await c.db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,answer_text,chat_messages,created_at
+      FROM truth_dare_games WHERE id=?`).bind(id).first<GameRow>();
     return json({ game: publicGame(game, c.member.userId), existed: false }, 201);
   } catch (error) { return fail(error); }
 }

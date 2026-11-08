@@ -22,6 +22,7 @@ import * as truthDareRoll from '../app/api/games/truth-dare/[id]/roll/route.ts';
 import * as truthDareChoice from '../app/api/games/truth-dare/[id]/choice/route.ts';
 import * as truthDareQuestion from '../app/api/games/truth-dare/[id]/question/route.ts';
 import * as truthDareAnswer from '../app/api/games/truth-dare/[id]/answer/route.ts';
+import * as truthDareChat from '../app/api/games/truth-dare/[id]/chat/route.ts';
 import * as photo from '../app/api/photos/[id]/route.ts';
 import * as photoCaption from '../app/api/photos/[id]/caption/route.ts';
 import * as photoDate from '../app/api/photos/[id]/date/route.ts';
@@ -151,8 +152,8 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
       const match = captionMatch || dateMatch || locationMatch || /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})$/.exec(url.pathname);
       const travelPhotoMatch = /^\/api\/travel\/footprints\/([a-zA-Z0-9_-]{1,100})\/photos\/([a-f0-9-]{36})$/.exec(url.pathname);
       const travelFootprintMatch = /^\/api\/travel\/footprints\/([a-zA-Z0-9_-]{1,100})$/.exec(url.pathname);
-      const truthDareMatch = /^\/api\/games\/truth-dare\/([a-f0-9-]{36})\/(roll|choice|question|answer)$/i.exec(url.pathname);
-      const truthDareRoute = truthDareMatch ? {roll:truthDareRoll,choice:truthDareChoice,question:truthDareQuestion,answer:truthDareAnswer}[truthDareMatch[2]] : null;
+      const truthDareMatch = /^\/api\/games\/truth-dare\/([a-f0-9-]{36})\/(roll|choice|question|answer|chat)$/i.exec(url.pathname);
+      const truthDareRoute = truthDareMatch ? {roll:truthDareRoll,choice:truthDareChoice,question:truthDareQuestion,answer:truthDareAnswer,chat:truthDareChat}[truthDareMatch[2]] : null;
       const route = routes.get(url.pathname) || (truthDareRoute ? truthDareRoute : travelPhotoMatch ? travelFootprintPhoto : travelFootprintMatch ? travelFootprint : captionMatch ? photoCaption : dateMatch ? photoDate : locationMatch ? photoLocation : match ? photo : null);
       if (route) {
         const handler = route[request.method];

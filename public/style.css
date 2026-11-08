@@ -40,6 +40,9 @@ button.tap-surface,a.tap-surface{position:relative;overflow:hidden;isolation:iso
 @media(hover:hover){.outline:not(:disabled):hover,.pet-actions button:not(:disabled):hover,.shortcut-links a:hover{box-shadow:0 3px 10px #8d634016;border-color:#c29c80}}
 @media(prefers-reduced-motion:reduce){button:not(:disabled):active,a.primary:active,a.outline:active,.shortcut-links a:active,header nav a:active,.room-location a:active{transform:none}.tap-ripple{display:none;animation:none}}
 
+/* Travel is a first-class mobile destination, so the dock keeps six equal touch targets. */
+@media(max-width:720px){.mobile-dock{grid-template-columns:repeat(6,minmax(0,1fr))}.mobile-dock>[data-dock-page="travel"]>span:first-child{font-size:20px;line-height:22px}}
+
 /* Phone layout: thumb navigation, less repeated chrome, and comfortable sheets. */
 .mobile-dock{display:none}.room-menu{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:4px}.room-menu a{display:flex;flex-direction:column;justify-content:center;min-height:78px;padding:14px;background:#fffaf3;border:1px solid #e5d4c4;border-radius:14px;gap:4px}.room-menu a strong{font-size:15px;font-weight:500;color:#735542}.room-menu a small{font-size:11px;line-height:1.6;color:#876d59}.room-menu a[aria-current="page"]{background:#f3e1d4;border-color:#bb9479}.mobile-dock a:active,.room-menu a:active{transform:translateY(1px) scale(.96);background:#f0ddcf}
 @media(max-width:720px){
@@ -107,6 +110,25 @@ dialog{position:fixed;inset:auto 0 0;margin:0;width:100%;max-width:100%;max-heig
 .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 .album-section{max-width:1120px;margin-inline:auto}.album-heading{align-items:center;margin-bottom:22px}.album-heading h2{margin:0;font-size:34px}.album-actions{display:flex;align-items:center;gap:9px}.album-icon-button{display:inline-grid;place-items:center;width:42px;height:42px;min-width:42px;padding:0;border:1px solid #e1d5c9;border-radius:50%;background:#fffaf5;color:#745f50;font-size:20px;line-height:1;transition:background .2s,transform .2s}.album-icon-button:hover{background:#f1e7de;transform:translateY(-1px)}.album-icon-button:disabled{transform:none}.album-search{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:8px;margin-bottom:10px}.album-search input{min-width:0;height:44px;border-radius:22px;padding:10px 18px;background:#fffaf5}.album-search .album-icon-button{width:40px;height:40px;min-width:40px;font-size:17px}.album-ai-toolbar{gap:8px;margin:8px 0 4px}.album-ai-toolbar select{min-height:40px;border-radius:20px;padding:7px 32px 7px 13px}.album-ai-toolbar .album-icon-button{width:38px;height:38px;min-width:38px;font-size:16px}.album-compact-note{min-height:0;margin:4px 0;color:var(--muted);font-size:10px}.album-compact-note:empty{display:none}.album-tools{justify-content:flex-end;min-height:24px;margin:0 0 8px}.album-tools>span{padding:0;font-size:11px;color:#a28e7d}.album-timeline{display:grid;gap:42px}.album-year>h3{margin:0 0 14px;font:400 34px/1.1 var(--serif);letter-spacing:-1px;color:#59493e}.album-month{margin-bottom:12px;border-top:1px solid #e8ddd4}.album-month-toggle{position:sticky;top:82px;z-index:5;width:100%;min-height:54px;padding:10px 4px;display:flex;align-items:center;justify-content:space-between;gap:15px;background:rgba(251,245,238,.94);background:color-mix(in srgb,var(--paper) 94%,transparent);backdrop-filter:blur(12px);color:#725e50;text-align:left}.album-month-toggle>span:first-child{font:500 20px/1.2 var(--serif)}.album-month-toggle>span:last-child{display:flex;align-items:center;gap:12px;color:#a48f80}.album-month-toggle small{font-size:10px;font-weight:400}.album-month-toggle i{font-style:normal;font-size:17px;transition:transform .2s}.album-month.is-open .album-month-toggle i{transform:rotate(180deg)}.album-month-panel{padding:18px 0 34px}.album-timeline .photo-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:34px 26px}.album-timeline .photo-grid>.photo-item{display:block;min-width:0;padding:0 0 14px;border:0;border-radius:14px;background:#fffaf5;box-shadow:0 10px 34px #7156400d;transform:none;overflow:hidden}.album-timeline .photo-open{border-radius:14px 14px 0 0}.album-timeline .photo-open img{aspect-ratio:4/3}.album-timeline .photo-caption-list{padding-inline:12px}.album-timeline .album-tags{padding-inline:12px}.album-timeline .photo-caption-add{width:34px;height:34px;margin:7px 0 0 12px;padding:0;border-radius:50%;background:#f1e7de;font-size:15px}.album-timeline .photo-delete{right:10px;top:10px}.album-month-more,.album-empty{display:grid;place-items:center;margin:24px auto 0;width:44px;height:44px;border:1px solid #dfd2c7;border-radius:50%;background:#fffaf5;color:#856f60;font-size:22px}.album-empty{width:72px;height:72px;margin:52px auto;font-size:35px}.video-section{margin-top:48px}.video-section>h3{font:400 24px var(--serif);margin:0 0 16px}
 
-@media(max-width:768px){
-  .album-section{width:100%}.album-heading{margin-bottom:16px}.album-heading h2{font-size:29px}.album-actions{gap:7px}.album-icon-button{width:40px;height:40px;min-width:40px}.album-search{grid-template-columns:minmax(0,1fr) repeat(3,38px);gap:6px}.album-search .album-icon-button{width:38px;height:38px;min-width:38px}.album-ai-toolbar{margin-top:6px}.album-tools{margin-bottom:4px}.album-timeline{gap:34px}.album-year>h3{font-size:29px;margin-bottom:12px}.album-month-toggle{top:78px;min-height:50px;padding-inline:2px}.album-month-toggle>span:first-child{font-size:19px}.album-month-panel{padding:16px 0 30px}.album-timeline .photo-grid{grid-template-columns:minmax(0,1fr);gap:32px}.album-timeline .photo-grid>.photo-item{display:block;width:100%;padding:0 0 16px;border-radius:14px}.album-timeline .photo-item img,.album-timeline .photo-open img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover}.album-timeline .photo-caption-list{padding-inline:10px}.album-timeline .photo-caption-add{min-height:36px;margin-left:10px;padding:0}.album-timeline .photo-delete{right:10px;top:10px}.album-month-more{margin-top:20px}
+/* --- 强制手机端底部 6 个按钮排成一排 (Grid版) --- */
+@media (max-width: 720px) {
+  .mobile-dock {
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important; /* 强制 6 等分 */
+    flex-wrap: nowrap !important;
+    padding: 7px 2px calc(7px + env(safe-area-inset-bottom)) 2px !important; 
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  
+  .mobile-dock > a, 
+  .mobile-dock > button {
+    min-width: 0 !important; 
+    padding: 5px 0 !important; 
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 10px !important; /* 字体强制变小，防止挤爆 */
+  }
 }

@@ -20,6 +20,7 @@ test('travel footprint subsite has its own explicitly scoped PWA',async()=>{
   assert.match(worker,/\.\/vendor\/leaflet\.js/);assert.match(worker,/\.\/vendor\/leaflet\.css/);assert.match(worker,/origin !== self\.location\.origin/);
   assert.deepEqual(JSON.parse(manifest).scope,'/travel/');
   assert.match(home,/href="\/travel\/"/);assert.match(features,/location\.assign\('\/travel\/'\)/);
+  assert.match(features,/travel:'🗺 旅行足迹'/);assert.match(features,/data-dock-page="travel"/);assert.match(features,/link\.href='\/travel\/'/);
 });
 
 test('Render build serves the travel app and its PWA files outside the login boundary',async()=>{

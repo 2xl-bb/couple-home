@@ -53,11 +53,13 @@ window.LITTLE_DAYS_FEATURES_READY=true;renderTogether();
 
 // Hash routes keep each room on its own page, including on static GitHub Pages.
 (function setupRoomPages(){
- const titles={home:'小屋首页',stories:'我们的故事',album:'回忆相册',pet:'一起养宠',wishes:'心愿清单',letters:'悄悄话',together:'双人日常',corners:'彼此的小档案',book:'月度回忆册'};
+ const titles={home:'小屋首页',stories:'我们的故事',album:'回忆相册',travel:'🗺 旅行足迹',pet:'一起养宠',wishes:'心愿清单',letters:'悄悄话',together:'双人日常',corners:'彼此的小档案',book:'月度回忆册'};
  const main=document.querySelector('main');
  $('#room-picker').onchange=e=>{if(e.target.value==='travel'){location.assign('/travel/');return}location.hash='/'+e.target.value};
- const roomNotes={home:'今天的心情与期待',stories:'收藏心动的瞬间',album:'留住一起看过的风景',pet:'陪小家伙待一会儿',wishes:'把下次一起写下来',letters:'说给最喜欢的人听',together:'问答、约会、日历与小券',corners:'记住彼此的小习惯',book:'把一个月好好珍藏'};
- $('#mobile-more').onclick=()=>{modal('小屋里的每个角落','<div class="room-menu">'+Object.entries(titles).map(([page,title])=>`<a href="#/${page}" ${page===current?'aria-current="page"':''}><strong>${title}</strong><small>${roomNotes[page]}</small></a>`).join('')+'</div>');$('#mobile-more').setAttribute('aria-expanded','true');document.querySelectorAll('.room-menu a').forEach(a=>a.onclick=event=>{if(!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey)close()})};
+ const roomNotes={home:'今天的心情与期待',stories:'收藏心动的瞬间',album:'留住一起看过的风景',travel:'把一起走过的路留在地图上',pet:'陪小家伙待一会儿',wishes:'把下次一起写下来',letters:'说给最喜欢的人听',together:'问答、约会、日历与小券',corners:'记住彼此的小习惯',book:'把一个月好好珍藏'};
+ const mobileMore=$('#mobile-more');
+ if(!document.querySelector('[data-dock-page="travel"]')){const link=document.createElement('a');link.href='/travel/';link.dataset.dockPage='travel';link.setAttribute('aria-label','旅行足迹');const icon=document.createElement('span');icon.setAttribute('aria-hidden','true');icon.textContent='🗺';const label=document.createElement('span');label.textContent='旅行';link.append(icon,label);mobileMore.before(link)}
+ mobileMore.onclick=()=>{modal('小屋里的每个角落','<div class="room-menu">'+Object.entries(titles).map(([page,title])=>`<a href="${page==='travel'?'/travel/':'#/'+page}" ${page===current?'aria-current="page"':''}><strong>${title}</strong><small>${roomNotes[page]}</small></a>`).join('')+'</div>');mobileMore.setAttribute('aria-expanded','true');document.querySelectorAll('.room-menu a').forEach(a=>a.onclick=event=>{if(!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey)close()})};
  $('#modal').addEventListener('close',()=>$('#mobile-more').setAttribute('aria-expanded','false'));
  const bottom=document.querySelector('.bottom-grid');
  for(const id of ['wishes','letters']){const node=document.getElementById(id);const wrapper=document.createElement('section');wrapper.className='section single-room-page';wrapper.dataset.page=id;bottom.before(wrapper);wrapper.append(node)}bottom.remove();
@@ -71,7 +73,7 @@ window.LITTLE_DAYS_FEATURES_READY=true;renderTogether();
  function showPage(){const hash=location.hash,page=pageFor(hash),changed=page!==current;current=page;
  document.querySelectorAll('[data-page]').forEach(el=>{el.hidden=el.dataset.page!==page});
  document.querySelectorAll('header nav a').forEach(a=>{if(a.getAttribute('href')==='#/'+page)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
- document.querySelectorAll('[data-dock-page]').forEach(a=>{const active=a.dataset.dockPage===page;a.classList.toggle('is-active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});$('#mobile-more').classList.toggle('is-active',!['home','album','pet','together'].includes(page));
+ document.querySelectorAll('[data-dock-page]').forEach(a=>{const active=a.dataset.dockPage===page;a.classList.toggle('is-active',active);if(active)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});mobileMore.classList.toggle('is-active',!['home','album','pet','together'].includes(page));
  $('#room-picker').value=page;$('#room-location').hidden=page==='home';$('#room-location-label').textContent='现在在 · '+titles[page];
  document.title=titles[page]+' · 我们的小日子';document.body.dataset.roomPage=page;
  if(changed){window.scrollTo({top:0,behavior:'instant'});const heading=main.querySelector('[data-page="'+page+'"] h1,[data-page="'+page+'"] h2,[data-page="'+page+'"] h3');if(heading){heading.setAttribute('tabindex','-1');heading.focus({preventScroll:true})}}

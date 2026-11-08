@@ -1,4 +1,4 @@
-const CACHE_NAME='couple-home-v7';
+const CACHE_NAME='couple-home-v8';
 const CACHE_PREFIXES=['couple-home-','couple-home-static-'];
 const STATIC_ASSETS=['/','/manifest.json','/style.css?v=20261107-exif-fix','/pet-view.js?v=20261031-pet-design','/room-helpers.js?v=20261027-album-ai','/exifr.js?v=7.1.3','/app.js?v=20261107-exif-fix','/album.js?v=20261107-exif-fix','/features.js?v=20261027-album-ai','/entry.js','/favicon.svg','/icon-192.svg','/icon-512.svg','/icon-192.png','/icon-512.png'];
 

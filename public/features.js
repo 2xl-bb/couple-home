@@ -53,10 +53,14 @@ window.LITTLE_DAYS_FEATURES_READY=true;renderTogether();
 
 // Hash routes keep each room on its own page, including on static GitHub Pages.
 (function setupRoomPages(){
- const titles={home:'小屋首页',stories:'我们的故事',album:'回忆相册',travel:'🗺 旅行足迹',pet:'一起养宠',wishes:'心愿清单',letters:'悄悄话',together:'双人日常',corners:'彼此的小档案',book:'月度回忆册'};
+ const titles={home:'小屋首页',stories:'我们的故事',album:'回忆相册',travel:'🗺 旅行足迹',wishes:'心愿清单',letters:'悄悄话',together:'双人日常',corners:'彼此的小档案',book:'月度回忆册'};
  const main=document.querySelector('main');
+ document.querySelectorAll('#room-picker option[value="pet"],.shortcut-links a[href="#pet-home"]').forEach(node=>node.remove());
+ const gameNav=document.querySelector('header nav a[href="#/pet"]');gameNav.href='#truth-dare';gameNav.textContent='🎲 真心话大冒险';gameNav.dataset.openTruthDare='';
+ const gameDock=document.querySelector('[data-dock-page="pet"]');gameDock.href='#truth-dare';gameDock.removeAttribute('data-dock-page');gameDock.dataset.openTruthDare='';gameDock.innerHTML='<span class="dock-dice" aria-hidden="true">⚄</span><span>互动</span>';
+ document.querySelector('#pet-home').hidden=true;
  $('#room-picker').onchange=e=>{if(e.target.value==='travel'){location.assign('/travel/');return}location.hash='/'+e.target.value};
- const roomNotes={home:'今天的心情与期待',stories:'收藏心动的瞬间',album:'留住一起看过的风景',travel:'把一起走过的路留在地图上',pet:'陪小家伙待一会儿',wishes:'把下次一起写下来',letters:'说给最喜欢的人听',together:'问答、约会、日历与小券',corners:'记住彼此的小习惯',book:'把一个月好好珍藏'};
+ const roomNotes={home:'今天的心情与期待',stories:'收藏心动的瞬间',album:'留住一起看过的风景',travel:'把一起走过的路留在地图上',wishes:'把下次一起写下来',letters:'说给最喜欢的人听',together:'问答、约会、日历与小券',corners:'记住彼此的小习惯',book:'把一个月好好珍藏'};
  const mobileMore=$('#mobile-more');
  if(!document.querySelector('[data-dock-page="travel"]')){const link=document.createElement('a');link.href='/travel/';link.dataset.dockPage='travel';link.setAttribute('aria-label','旅行足迹');const icon=document.createElement('span');icon.setAttribute('aria-hidden','true');icon.textContent='🗺';const label=document.createElement('span');label.textContent='旅行';link.append(icon,label);mobileMore.before(link)}
  mobileMore.onclick=()=>{modal('小屋里的每个角落','<div class="room-menu">'+Object.entries(titles).map(([page,title])=>`<a href="${page==='travel'?'/travel/':'#/'+page}" ${page===current?'aria-current="page"':''}><strong>${title}</strong><small>${roomNotes[page]}</small></a>`).join('')+'</div>');mobileMore.setAttribute('aria-expanded','true');document.querySelectorAll('.room-menu a').forEach(a=>a.onclick=event=>{if(!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey)close()})};
@@ -65,7 +69,7 @@ window.LITTLE_DAYS_FEATURES_READY=true;renderTogether();
  for(const id of ['wishes','letters']){const node=document.getElementById(id);const wrapper=document.createElement('section');wrapper.className='section single-room-page';wrapper.dataset.page=id;bottom.before(wrapper);wrapper.append(node)}bottom.remove();
  const extras=document.getElementById('little-corners');
  for(const [selector,page]of [['.room-card','pet'],['.private-card','corners'],['.book-card','book']]){const node=extras.querySelector(selector),wrapper=document.createElement('section');wrapper.className='section single-room-page';wrapper.dataset.page=page;extras.before(wrapper);wrapper.append(node)}extras.remove();
- const aliases={'pet-home':'pet','mood-today':'home','little-corners':'corners'};
+ const aliases={'mood-today':'home','little-corners':'corners'};
  const pageFor=hash=>{const key=hash.replace(/^#\/?/,'');return Object.hasOwn(titles,key)?key:Object.hasOwn(aliases,key)?aliases[key]:'home'};
  // Existing in-page links and shared bookmarks continue to open the right room.
  document.querySelectorAll('a[href^="#"]').forEach(a=>{const hash=a.getAttribute('href');if(hash==='#mood-today')return;a.setAttribute('href','#/'+pageFor(hash))});

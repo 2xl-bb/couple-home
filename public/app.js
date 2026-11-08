@@ -34,7 +34,7 @@ let photoScrollFrame=0;function schedulePhotoLoad(){if(!PAGES_MODE||!ready||phot
 window.addEventListener('scroll',schedulePhotoLoad,{passive:true});window.addEventListener('resize',schedulePhotoLoad,{passive:true});$('#modal').addEventListener('scroll',schedulePhotoLoad,{passive:true});
 
 const empty=()=>({v:2,names:['你','我'],start:'',intro:'',stories:[],photos:[],videos:[],wishes:[],letters:[],anniversaries:[],moods:{},pet:{name:'团团',kind:'cat',color:'cream',bornAt:Date.now(),updatedAt:Date.now(),fullness:75,happiness:80,energy:85,xp:0,sleepingUntil:0,careLog:[]}});
-let state=empty(),me=null,members=[],revision=-1,ready=false,loginRequired=false,pending=0,polling=false,received=0,requestId=0,queue=Promise.resolve(),toastTimer;
+let state=empty(),me=null,members=[],revision=-1,ready=false,loginRequired=false,isAuthChecking=true,pending=0,polling=false,received=0,requestId=0,queue=Promise.resolve(),toastTimer;
 let syncTag='',syncFailures=0,nextSyncAt=0;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const roleLabel=slot=>STANDALONE_MODE?((window.LittleDaysEntry?.identityNames||['成员一','成员二'])[Number(slot)-1]||'小屋成员'):Number(slot)===1?'成员一':Number(slot)===2?'成员二':'小屋成员';
@@ -43,7 +43,7 @@ const today=()=>new Date(Date.now()+8*3600e3).toISOString().slice(0,10);
 const daynum=s=>{const p=s.split('-').map(Number);return Date.UTC(p[0],p[1]-1,p[2])/86400000};const fmt=s=>String(s??'').replaceAll('-','.');
 function toast(msg){$('#toast').textContent=msg;$('#toast').classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3800)}
 function status(text,error=false){$('#sync-status').textContent=text;$('#sync-refresh').classList.toggle('error',error)}
-function showLogin(message='选择你的身份，输入密码就能回家。'){loginRequired=true;syncTag='';if(typeof LittleDaysAlbum!=='undefined')LittleDaysAlbum.reset();const dialog=$('#modal');if(dialog.open)dialog.close();dialog.dataset.busy='0';for(const entry of photoCache.values())if(entry.url)URL.revokeObjectURL(entry.url);photoCache.clear();photoFailures.clear();if(PAGES_MODE)forgetDevice();document.body.classList.add('home-locked');$('#login-gate').hidden=false;$('#login-note').textContent=message;ready=false;}
+function showLogin(message='选择你的身份，输入密码就能回家。'){isAuthChecking=false;document.body.classList.remove('auth-checking');loginRequired=true;syncTag='';if(typeof LittleDaysAlbum!=='undefined')LittleDaysAlbum.reset();const dialog=$('#modal');if(dialog.open)dialog.close();dialog.dataset.busy='0';for(const entry of photoCache.values())if(entry.url)URL.revokeObjectURL(entry.url);photoCache.clear();photoFailures.clear();if(PAGES_MODE)forgetDevice();document.body.classList.add('home-locked');$('#login-gate').hidden=false;$('#login-note').textContent=message;ready=false;}
 function connection(message,login=false){const b=$('#connection-banner');b.hidden=false;b.replaceChildren();b.append(document.createTextNode(message));if(login){const a=document.createElement('a');a.href=ownerSignIn;a.target='_top';a.textContent=STANDALONE_MODE?'重新登录 →':'使用 ChatGPT 登录 →';if(STANDALONE_MODE)a.onclick=e=>{e.preventDefault();showLogin()};b.append(a)}}
 function connectionProblem(message){const e=new Error(message);e.connection=true;return e}
 async function api(path,options={}){
@@ -57,25 +57,32 @@ async function api(path,options={}){
  if(!res.ok){const e=new Error(data.error||'连接没有成功，请重试。');e.status=res.status;if(res.status===401&&path!=='/api/auth')showLogin(data.error);throw e}return data;
 }
 function showConnectionRetry(visible){$('#login-retry').hidden=!visible}
+$('#auth-loading-retry').onclick=async()=>{if(polling)return;if(STANDALONE_MODE&&window.LittleDaysEntry){await window.LittleDaysEntry.start();return}loginRequired=false;nextSyncAt=0;$('#auth-loading-note').textContent='正在检查小屋连接……';$('#auth-loading-retry').hidden=true;await sync(true)};
 
 function accept(data,seq){
  if(seq<received||data.revision<revision)return;
  if(data.identityNames&&typeof window!=='undefined')window.LittleDaysEntry?.applyNames(data.identityNames);
- received=seq;if(data.state)state=data.state;me=data.me;members=data.members;revision=data.revision;syncTag=data.syncTag||'';syncFailures=0;nextSyncAt=0;ready=true;loginRequired=false;
- document.body.classList.remove('home-locked');$('#login-gate').hidden=true;$('#connection-banner').hidden=true;showConnectionRetry(false);status('云端已同步');$('#sync-refresh').title='最近同步：'+new Date().toLocaleTimeString('zh-CN');
+ received=seq;if(data.state)state=data.state;me=data.me;members=data.members;revision=data.revision;syncTag=data.syncTag||'';syncFailures=0;nextSyncAt=0;ready=true;loginRequired=false;isAuthChecking=false;
+ document.body.classList.remove('home-locked','auth-checking');$('#login-gate').hidden=true;$('#connection-banner').hidden=true;showConnectionRetry(false);status('云端已同步');$('#sync-refresh').title='最近同步：'+new Date().toLocaleTimeString('zh-CN');
  if(data.unchanged){renderMemberStatus();loadPagesPhotos();return}render();
 }
 async function sync(force=false){
  if(polling||pending||loginRequired||(!force&&Date.now()<nextSyncAt))return;
  polling=true;const id=++requestId;
  try{accept(await api('/api/home'+(ready&&syncTag?'?since='+encodeURIComponent(syncTag):'')),id)}
- catch(e){status(e.status===401?'请先登录':'暂未连接',true);if(e.status!==401){syncFailures++;nextSyncAt=Date.now()+Math.min(120000,12000*2**Math.min(syncFailures,4));connection(e.message+' 连接恢复后会继续同步。');if(!ready){$('#login-note').textContent=e.message;showConnectionRetry(true)}}}
+ catch(e){status(e.status===401?'请先登录':'暂未连接',true);if(e.status!==401){syncFailures++;nextSyncAt=Date.now()+Math.min(120000,12000*2**Math.min(syncFailures,4));connection(e.message+' 连接恢复后会继续同步。');if(!ready){if(isAuthChecking){$('#auth-loading-note').textContent=e.message+' 网络恢复后可重新检查。';$('#auth-loading-retry').hidden=false}else{$('#login-note').textContent=e.message;showConnectionRetry(true)}}}}
  finally{polling=false}
 }
 async function refreshNow(){const seq=++requestId;accept(await api('/api/home'),seq)}
 
 function mutate(kind,payload){const op={id:uid(),kind,payload};const task=queue.then(async()=>{if(!ready)throw new Error('请先连接并登录云端小屋。');pending++;status('正在收藏…');const seq=++requestId;try{const options={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(op)};let result;try{result=await api('/api/home',options)}catch(err){if(err.status)throw err;result=await api('/api/home',options)}accept(result,seq);return true}catch(e){status('保存未完成',true);throw e}finally{pending--}});queue=task.catch(()=>{});return task}
 function close(){if($('#modal').dataset.busy==='1'){toast('正在整理或恢复，请稍候。');return}$('#modal').close()}function modal(title,html=''){$('#modal-title').textContent=title;$('#modal-content').innerHTML=html;$('#modal').showModal()}
+const truths=['说出对方最让你心动的一个瞬间。','你觉得我们之间最大的默契是什么？','分享一件你一直想和对方一起做的小事。','最近一次觉得“有你真好”是什么时候？','用三个词形容你眼中的我们。','说一个你很喜欢、但还没告诉对方的小习惯。'];
+const dares=['为对方选一首歌，哼出最喜欢的一句。','模仿对方的一个招牌动作，让对方猜一猜。','给对方写一句今天专属的夸奖。','一起摆一个有趣的合照姿势。','如果双方都愿意，给对方一个轻轻的吻；也可以击掌或换题。','闭上眼睛，让对方选一口喜欢的零食给你；不方便时可以换题。'];
+let lastTruthDare='';
+function drawTruthDare(){const type=Math.random()<.5?'truth':'dare',pool=type==='truth'?truths:dares,choices=pool.filter(item=>item!==lastTruthDare),question=choices[Math.floor(Math.random()*choices.length)];lastTruthDare=question;$('#truth-dare-kind').textContent=type==='truth'?'真心话':'大冒险';$('#truth-dare-question').textContent=question;$('#truth-dare-result').hidden=false}
+function openTruthDare(){if(!needReady())return;lastTruthDare='';modal('🎲 真心话大冒险','<div class="truth-dare"><div class="truth-dare-dice" id="truth-dare-dice" aria-hidden="true">⚄</div><p class="truth-dare-caption">把一点点勇气和好奇，交给这一颗骰子。</p><article id="truth-dare-result" class="truth-dare-result" hidden><span id="truth-dare-kind"></span><p id="truth-dare-question"></p></article><p class="truth-dare-note">任何一方都可以跳过或换题，不必勉强。开心最重要 ♡</p><div class="truth-dare-actions"><button type="button" class="primary" id="truth-dare-roll">掷骰子</button><button type="button" class="outline" id="truth-dare-change" hidden>换一个 ↻</button></div></div>');const roll=()=>{const dice=$('#truth-dare-dice');dice.classList.remove('is-rolling');void dice.offsetWidth;dice.classList.add('is-rolling');$('#truth-dare-roll').disabled=true;$('#truth-dare-change').hidden=true;setTimeout(()=>{drawTruthDare();$('#truth-dare-roll').disabled=false;$('#truth-dare-roll').textContent='再掷一次';$('#truth-dare-change').hidden=false},550)};$('#truth-dare-roll').onclick=roll;$('#truth-dare-change').onclick=()=>drawTruthDare()}
+document.addEventListener('click',event=>{const trigger=event.target instanceof Element?event.target.closest('[data-open-truth-dare]'):null;if(trigger){event.preventDefault();openTruthDare()}});
 function formSnapshot(form){return JSON.stringify([...new FormData(form)].map(([key,value])=>[key,typeof value==='string'?value:{name:value.name,size:value.size,lastModified:value.lastModified}]))}
 function unsavedModalForm(){const f=$('#active-form');return $('#modal').open&&f&&(f.dataset.saving==='1'||formSnapshot(f)!==f.dataset.original)}
 function requestModalClose(){const f=$('#active-form');if($('#modal').dataset.busy==='1'||f?.dataset.saving==='1'){toast('正在保存或整理，请稍候。');return false}if(unsavedModalForm()&&!confirm('内容还没有保存，确定放下这次编辑吗？'))return false;close();return true}
@@ -195,7 +202,7 @@ $('#password-visibility').onclick=()=>{const input=$('#home-password'),shown=inp
 $('#add-story').onclick=()=>{if(!needReady())return;modal('记下一个心动瞬间');form(field('这一天','date','date',today(),'required')+field('给回忆起个名字','title','text','','required maxlength="40" placeholder="第一次一起看海"')+'<label class="form-field">想记住的细节<textarea name="text" maxlength="1500" required placeholder="那天的天气、对方说的话，还有你的心情……"></textarea></label>',async d=>{await mutate('story.add',{...Object.fromEntries(d),id:uid()});close();toast('一段回忆，已经为两个人收藏好了')},'story')};
 $('#add-anniversary').onclick=()=>{if(!needReady())return;modal('添加一个值得期待的日子');form(field('纪念日名称','title','text','','required maxlength="30" placeholder="你的生日 / 第一次牵手"')+field('日期（每年提醒）','date','date',today(),'required'),async d=>{await mutate('anniversary.add',{...Object.fromEntries(d),id:uid()});close();toast('重要的日子，记住了 ♡')})};
 document.querySelectorAll('[data-mood]').forEach(b=>b.onclick=async()=>{if(!needReady())return;try{await mutate('mood',{mood:b.dataset.mood});toast('今天的心情，对方也能看到啦')}catch(e){toast(e.message)}});
-$('#random-date').onclick=()=>{if(!needReady())return;location.hash='/together'};
+$('.date-card .section-kicker').textContent='TRUTH OR DARE';$('.date-card h2').textContent='来一场轻松的小挑战';$('#date-idea').textContent='掷一颗骰子，抽一条只属于你们的真心话或小冒险。';$('.date-symbol').textContent='⚄';$('#random-date').textContent='🎲 真心话大冒险 ↗';$('#random-date').onclick=openTruthDare;
 $('#wish-form').onsubmit=async e=>{e.preventDefault();if(!needReady())return;const text=$('#wish-input').value.trim();if(!text)return;const btn=e.submitter;btn.disabled=true;try{await mutate('wish.add',{id:uid(),text});$('#wish-input').value='';toast('又多了一个一起期待的以后')}catch(err){toast(err.message)}finally{btn.disabled=false}};
 $('#add-letter').onclick=()=>{if(!needReady())return;modal('写给最喜欢的那个人');form(field('署名','author','text',state.names[(me?.slot||1)-1],'required maxlength="20"')+'<label class="form-field">想说的话<textarea name="text" required maxlength="3000" placeholder="亲爱的，今天想对你说……"></textarea></label>'+field('约定打开日期（可选）','openDate','date','',`min="${today()}"`)+'<p class="form-help">未来信的正文会在云端收好，到了约定日期再一起打开。日期按北京时间计算。</p>',async d=>{await mutate('letter.add',{...Object.fromEntries(d),id:uid()});close();toast('你的心意，已经在小屋里收好了 ♡')},'letter')};
 async function compressPhoto(file){

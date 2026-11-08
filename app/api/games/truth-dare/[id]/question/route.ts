@@ -24,7 +24,7 @@ export async function POST(req: Request, {params}: Params) {
     if (!questionText) throw new HomeError('请填写或选择一道题目。');
 
     const updated = await c.db.prepare(`UPDATE truth_dare_games
-      SET question_text=?,status='finished'
+      SET question_text=?,status='waiting_loser_answer'
       WHERE id=? AND status='waiting_winner_question' AND loser_id=?`)
       .bind(questionText, id, game.loser_id).run();
     if (!updated.meta.changes) throw new HomeError('对局状态已变化，请刷新后重试。', 409);

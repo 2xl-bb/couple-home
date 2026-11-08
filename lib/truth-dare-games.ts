@@ -11,6 +11,7 @@ type GameRow = {
   loser_id: string | null;
   choice_type: string | null;
   question_text: string | null;
+  answer_text: string | null;
   created_at: number;
 };
 
@@ -22,7 +23,7 @@ export async function readGame(req: Request) {
 }
 
 export async function findGame(db: Awaited<ReturnType<typeof context>>['db'], id: string) {
-  return db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,created_at
+  return db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,answer_text,created_at
     FROM truth_dare_games WHERE id=?`).bind(id).first<GameRow>();
 }
 
@@ -40,12 +41,13 @@ export function publicGame(row: GameRow | null, userId: string) {
     isWinner: row.loser_id !== null && !isLoser,
     choiceType: row.choice_type,
     questionText: row.question_text,
+    answerText: row.answer_text,
     createdAt: Number(row.created_at),
   };
 }
 
 export async function currentGame(db: Awaited<ReturnType<typeof context>>['db'], userId: string) {
-  return db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,created_at
+  return db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,answer_text,created_at
     FROM truth_dare_games
     WHERE creator_id=? OR partner_id=?
     ORDER BY CASE WHEN status <> 'finished' THEN 0 ELSE 1 END, created_at DESC, id DESC

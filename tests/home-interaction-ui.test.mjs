@@ -35,7 +35,9 @@ test('the game polls the shared API and renders each role-specific stage', () =>
     '#truth-dare-start','#truth-dare-board','#truth-dare-die-1','#truth-dare-die-2',
     '#truth-dare-roll','#truth-dare-types','#truth-dare-challenge','#truth-dare-status','#truth-dare-waiting',
     '#truth-dare-kind','#truth-dare-question','#truth-dare-result','#truth-dare-change','#truth-dare-custom',
-    '#truth-dare-custom-label','#truth-dare-custom-send','#truth-dare-submit-system','#truth-dare-note'
+    '#truth-dare-custom-label','#truth-dare-custom-send','#truth-dare-submit-system','#truth-dare-note',
+    '#truth-dare-answer-section','#truth-dare-answer-input','#truth-dare-answer-submit',
+    '#truth-dare-answer-result','#truth-dare-answer-text','#truth-dare-answer-label'
   ];
   const nodes = Object.fromEntries(selectors.map(selector=>[selector,{
     textContent:'',value:'',hidden:false,disabled:false,attributes:{},
@@ -65,17 +67,24 @@ test('the game polls the shared API and renders each role-specific stage', () =>
   assert.ok(nodes['#truth-dare-question'].textContent);
   render({...base,p2Roll:2,status:'waiting_winner_question',role:'p2',isLoser:true,isWinner:false,choiceType:'truth'});
   assert.match(nodes['#truth-dare-waiting'].textContent,/等待 TA 出题/);
-  render({...base,p2Roll:2,status:'finished',role:'p2',isLoser:true,isWinner:false,choiceType:'dare',questionText:'最终题目'});
+  render({...base,p2Roll:2,status:'waiting_loser_answer',role:'p1',isLoser:true,isWinner:false,choiceType:'dare',questionText:'最终题目'});
+  assert.equal(nodes['#truth-dare-answer-input'].hidden,false);
+  render({...base,p2Roll:2,status:'waiting_loser_answer',role:'p2',isLoser:false,isWinner:true,choiceType:'dare',questionText:'最终题目'});
+  assert.match(nodes['#truth-dare-status'].textContent,/等待 TA 作答/);
+  assert.equal(nodes['#truth-dare-answer-input'].hidden,true);
+  render({...base,p2Roll:2,status:'finished',role:'p2',isLoser:false,isWinner:true,choiceType:'dare',questionText:'最终题目',answerText:'最终回答'});
   assert.equal(nodes['#truth-dare-question'].textContent,'最终题目');
+  assert.equal(nodes['#truth-dare-answer-text'].textContent,'最终回答');
+  assert.equal(nodes['#truth-dare-answer-result'].hidden,false);
   assert.equal(nodes['#truth-dare-start'].hidden,false);
   assert.equal(nodes['#truth-dare-start'].textContent,'开启下一局 ↻');
-  for(const endpoint of ['/api/games/truth-dare/active','/roll','/choice','/question'])assert.ok(features.includes(endpoint),endpoint);
+  for(const endpoint of ['/api/games/truth-dare/active','/roll','/choice','/question','/answer'])assert.ok(features.includes(endpoint),endpoint);
   assert.match(features,/setInterval\(\(\)=>truthDareRefresh\(session\),3000\)/);
 });
 
 test('service worker cache version and resource URLs are refreshed', () => {
-  assert.match(sw, /couple-home-v11/);
-  assert.match(sw, /style\.css\?v=20261108-truth-cloud/);
-  assert.match(sw, /app\.js\?v=20261108-truth-cloud/);
-  assert.match(sw, /features\.js\?v=20261108-truth-cloud/);
+  assert.match(sw, /couple-home-v12/);
+  assert.match(sw, /style\.css\?v=20261108-truth-answer/);
+  assert.match(sw, /app\.js\?v=20261108-truth-answer/);
+  assert.match(sw, /features\.js\?v=20261108-truth-answer/);
 });

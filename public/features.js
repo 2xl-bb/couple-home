@@ -89,6 +89,11 @@ function truthDareShowGame(game){
  $('#truth-dare-challenge').hidden=true;
  $('#truth-dare-result').hidden=true;
  const waiting=$('#truth-dare-waiting');waiting.hidden=true;
+ $('#truth-dare-answer-section').hidden=true;
+ $('#truth-dare-answer-input').hidden=true;
+ $('#truth-dare-answer-submit').hidden=true;
+ $('#truth-dare-answer-result').hidden=true;
+ $('#truth-dare-answer-label').hidden=true;
  if(status==='waiting_p1_roll'||status==='waiting_p2_roll'){
   const expected=status==='waiting_p1_roll'?'p1':'p2';
   if(first!==null&&second!==null&&first===second)$('#truth-dare-status').textContent=`平局（${first} 比 ${second}），再由成员一掷一次。`;
@@ -108,6 +113,24 @@ function truthDareShowGame(game){
   $('#truth-dare-status').textContent=game.isWinner?'🎉 你赢了，来出题吧！':'😭 你输了，等待 TA 出题……';
   if(game.isWinner){$('#truth-dare-challenge').hidden=false;$('#truth-dare-result').hidden=false}
   else{waiting.hidden=false;waiting.textContent='等待 TA 出题……'}
+ }else if(status==='waiting_loser_answer'){
+  $('#truth-dare-status').textContent=game.isLoser?'轮到你作答了 ♡':'等待 TA 作答……';
+  $('#truth-dare-challenge').hidden=false;
+  $('#truth-dare-result').hidden=false;
+  $('#truth-dare-kind').textContent=game.choiceType==='truth'?'💬 真心话 · 请作答':'🔥 大冒险 · 请作答';
+  $('#truth-dare-question').textContent=game.questionText||'对方刚刚出了一道题。';
+  $('#truth-dare-change').hidden=true;
+  $('#truth-dare-custom-label').hidden=true;
+  $('#truth-dare-custom').hidden=true;
+  $('#truth-dare-custom-send').hidden=true;
+  $('#truth-dare-submit-system').hidden=true;
+  $('#truth-dare-note').hidden=true;
+  if(game.isLoser){
+   $('#truth-dare-answer-section').hidden=false;
+   $('#truth-dare-answer-label').hidden=false;
+   $('#truth-dare-answer-input').hidden=false;
+   $('#truth-dare-answer-submit').hidden=false;
+  }else{waiting.hidden=false;waiting.textContent='等待 TA 作答……'}
  }else if(status==='finished'){
   $('#truth-dare-status').textContent='本局结束 ♡';
   $('#truth-dare-challenge').hidden=false;
@@ -120,6 +143,10 @@ function truthDareShowGame(game){
   $('#truth-dare-custom-send').hidden=true;
   $('#truth-dare-submit-system').hidden=true;
   $('#truth-dare-note').hidden=true;
+  $('#truth-dare-answer-section').hidden=false;
+  $('#truth-dare-answer-label').hidden=true;
+  $('#truth-dare-answer-result').hidden=false;
+  $('#truth-dare-answer-text').textContent=game.answerText||'对方没有留下文字回答。';
  }
 }
 async function truthDareRefresh(session=truthDareSession){
@@ -141,7 +168,7 @@ function openTruthDare(){
  if(!needReady())return;
  const session=++truthDareSession;
  truthDareQuestionKey='';truthDareQuestionDraft='';truthDareCurrent=null;
- modal('🎲 异地双人真心话大冒险','<div class="truth-dare"><p class="truth-dare-caption">你们各自在自己的设备掷骰子，结果会自动同步。</p><button type="button" class="primary" id="truth-dare-start">发起新对局 ♡</button><section id="truth-dare-board" hidden><div class="truth-dare-duel"><article class="truth-dare-player"><span>成员一</span><strong id="truth-dare-die-1" class="truth-dare-die" aria-label="等待掷骰">⚄</strong></article><span class="truth-dare-versus">VS</span><article class="truth-dare-player"><span>成员二</span><strong id="truth-dare-die-2" class="truth-dare-die" aria-label="等待掷骰">⚄</strong></article></div><p id="truth-dare-status" class="truth-dare-status" role="status" aria-live="polite">正在检查对局……</p><p id="truth-dare-waiting" class="truth-dare-waiting" hidden></p><button type="button" class="primary" id="truth-dare-roll" hidden>掷骰子</button><div id="truth-dare-types" class="truth-dare-actions" hidden><button type="button" class="primary" id="truth-dare-truth">💬 真心话</button><button type="button" class="outline" id="truth-dare-dare">🔥 大冒险</button></div><section id="truth-dare-challenge" class="truth-dare-challenge" hidden><article id="truth-dare-result" class="truth-dare-result"><span id="truth-dare-kind"></span><p id="truth-dare-question"></p></article><button type="button" class="text-button" id="truth-dare-change">换一题 ↻</button><label id="truth-dare-custom-label" class="truth-dare-custom-label" for="truth-dare-custom">或者亲自写一道题 / 惩罚：</label><textarea id="truth-dare-custom" maxlength="300" placeholder="输入想问的问题，或想指定的惩罚……"></textarea><p id="truth-dare-custom-note" class="truth-dare-note" role="status"></p><div class="truth-dare-actions"><button type="button" class="primary" id="truth-dare-submit-system">提交这道题</button><button type="button" class="outline" id="truth-dare-custom-send">提交自定义题目</button></div></section><p id="truth-dare-note" class="truth-dare-note">任何一方都可以跳过或换题，不必勉强。开心最重要 ♡</p></section></div>');
+ modal('🎲 异地双人真心话大冒险','<div class="truth-dare"><p class="truth-dare-caption">你们各自在自己的设备掷骰子，结果会自动同步。</p><button type="button" class="primary" id="truth-dare-start">发起新对局 ♡</button><section id="truth-dare-board" hidden><div class="truth-dare-duel"><article class="truth-dare-player"><span>成员一</span><strong id="truth-dare-die-1" class="truth-dare-die" aria-label="等待掷骰">⚄</strong></article><span class="truth-dare-versus">VS</span><article class="truth-dare-player"><span>成员二</span><strong id="truth-dare-die-2" class="truth-dare-die" aria-label="等待掷骰">⚄</strong></article></div><p id="truth-dare-status" class="truth-dare-status" role="status" aria-live="polite">正在检查对局……</p><p id="truth-dare-waiting" class="truth-dare-waiting" hidden></p><button type="button" class="primary" id="truth-dare-roll" hidden>掷骰子</button><div id="truth-dare-types" class="truth-dare-actions" hidden><button type="button" class="primary" id="truth-dare-truth">💬 真心话</button><button type="button" class="outline" id="truth-dare-dare">🔥 大冒险</button></div><section id="truth-dare-challenge" class="truth-dare-challenge" hidden><article id="truth-dare-result" class="truth-dare-result"><span id="truth-dare-kind"></span><p id="truth-dare-question"></p></article><button type="button" class="text-button" id="truth-dare-change">换一题 ↻</button><label id="truth-dare-custom-label" class="truth-dare-custom-label" for="truth-dare-custom">或者亲自写一道题 / 惩罚：</label><textarea id="truth-dare-custom" maxlength="300" placeholder="输入想问的问题，或想指定的惩罚……"></textarea><p id="truth-dare-custom-note" class="truth-dare-note" role="status"></p><div class="truth-dare-actions"><button type="button" class="primary" id="truth-dare-submit-system">提交这道题</button><button type="button" class="outline" id="truth-dare-custom-send">提交自定义题目</button></div><section id="truth-dare-answer-section" class="truth-dare-answer" hidden><label id="truth-dare-answer-label" for="truth-dare-answer-input">写下你的回答：</label><textarea id="truth-dare-answer-input" maxlength="1000" placeholder="认真回答，也可以写下此刻的心情……" hidden></textarea><button type="button" class="primary" id="truth-dare-answer-submit" hidden>提交答案</button><article id="truth-dare-answer-result" hidden><strong>输家的回答</strong><p id="truth-dare-answer-text"></p></article></section></section><p id="truth-dare-note" class="truth-dare-note">任何一方都可以跳过或换题，不必勉强。开心最重要 ♡</p></section></div>');
  const stopPolling=()=>{if(session!==truthDareSession)return;if(truthDarePollTimer){clearInterval(truthDarePollTimer);truthDarePollTimer=null}if(truthDareRollAnimation){clearInterval(truthDareRollAnimation);truthDareRollAnimation=null}if(truthDareRollDelay){clearTimeout(truthDareRollDelay);truthDareRollDelay=null}truthDareActionRunning=false;truthDareSession++};
  $('#modal').addEventListener('close',stopPolling,{once:true});
  $('#truth-dare-start').onclick=()=>truthDareAction('/api/games/truth-dare',{});
@@ -161,6 +188,11 @@ function openTruthDare(){
   const question=$('#truth-dare-custom').value.trim();
   if(!question){$('#truth-dare-custom-note').textContent='先写下一道题目或一个小惩罚吧。';return}
   truthDareAction(`/api/games/truth-dare/${encodeURIComponent(truthDareCurrent.id)}/question`,{questionText:question});
+ };
+ $('#truth-dare-answer-submit').onclick=()=>{
+  const answer=$('#truth-dare-answer-input').value.trim();
+  if(!answer){$('#truth-dare-status').textContent='先写下你的回答吧。';return}
+  truthDareAction(`/api/games/truth-dare/${encodeURIComponent(truthDareCurrent.id)}/answer`,{answerText:answer});
  };
  truthDarePollTimer=setInterval(()=>truthDareRefresh(session),3000);
  truthDareRefresh(session);

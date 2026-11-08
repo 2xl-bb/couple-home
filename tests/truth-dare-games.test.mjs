@@ -61,13 +61,20 @@ test('authenticated partners can play a shared truth-or-dare game through every 
   assert.equal((await call(`${root}/${first.id}/question`,{method:'POST',cookie:p1,body:{questionText:'题目'}})).status,403);
   const finished=await call(`${root}/${first.id}/question`,{method:'POST',cookie:p2,body:{questionText:'你最喜欢我们一起做的哪件小事？'}});
   assert.equal(finished.status,200,await finished.clone().text());
-  assert.equal((await finished.json()).game.status,'finished');
+  assert.equal((await finished.json()).game.status,'waiting_loser_answer');
+  assert.equal((await call(`${root}/${first.id}/answer`,{method:'POST',cookie:p2,body:{answerText:'赢家不能代答'}})).status,403);
+  assert.equal((await call(`${root}/${first.id}/answer`,{method:'POST',cookie:p1,body:{answerText:'   '}})).status,400);
+  assert.equal((await call(`${root}/${first.id}/answer`,{method:'POST',cookie:p1,body:{answerText:'答'.repeat(1001)}})).status,400);
+  const answer=await call(`${root}/${first.id}/answer`,{method:'POST',cookie:p1,body:{answerText:'最喜欢一起散步，也最喜欢你分享沿途看到的小事。'}});
+  assert.equal(answer.status,200,await answer.clone().text());
+  assert.equal((await answer.json()).game.status,'finished');
   for(const cookie of [p1,p2]){
     const finalGame=(await (await call(`${root}/active`,{cookie})).json()).game;
     assert.equal(finalGame.status,'finished');
     assert.equal(finalGame.questionText,'你最喜欢我们一起做的哪件小事？');
+    assert.equal(finalGame.answerText,'最喜欢一起散步，也最喜欢你分享沿途看到的小事。');
   }
-  assert.equal((await call(`${root}/${first.id}/question`,{method:'POST',cookie:p2,body:{questionText:'重复提交'}})).status,409);
+  assert.equal((await call(`${root}/${first.id}/answer`,{method:'POST',cookie:p1,body:{answerText:'重复提交'}})).status,409);
 
   const tieCreated=await call(root,{method:'POST',cookie:p2,body:{}});
   assert.equal(tieCreated.status,201,await tieCreated.clone().text());

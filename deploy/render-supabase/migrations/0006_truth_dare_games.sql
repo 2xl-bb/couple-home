@@ -15,11 +15,11 @@ CREATE TABLE public.truth_dare_games (
   CHECK (creator_id <> partner_id)
 );
 
-CREATE UNIQUE INDEX public.truth_dare_games_one_active_idx
+CREATE UNIQUE INDEX truth_dare_games_one_active_idx
   ON public.truth_dare_games ((1))
   WHERE status <> 'finished';
 
-CREATE INDEX public.truth_dare_games_created_at_idx ON public.truth_dare_games(created_at, id);
+CREATE INDEX truth_dare_games_created_at_idx ON public.truth_dare_games(created_at, id);
 
 ALTER TABLE public.truth_dare_games ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.truth_dare_games FROM PUBLIC;

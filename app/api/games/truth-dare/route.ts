@@ -1,6 +1,7 @@
 import { context, fail, json, requireSameOrigin } from '../../../../lib/home-server';
 import { HomeError } from '../../../../lib/home-domain.mjs';
 import { currentGame, publicGame, readGame, type GameRow } from '../../../../lib/truth-dare-games';
+import { notifyTruthDareChanged } from '../../../../lib/truth-dare-stream';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,7 @@ export async function POST(req: Request) {
 
     const game = await c.db.prepare(`SELECT id,creator_id,partner_id,p1_roll,p2_roll,status,loser_id,choice_type,question_text,answer_text,chat_messages,created_at
       FROM truth_dare_games WHERE id=?`).bind(id).first<GameRow>();
+    notifyTruthDareChanged(c.db);
     return json({ game: publicGame(game, c.member.userId), existed: false }, 201);
   } catch (error) { return fail(error); }
 }

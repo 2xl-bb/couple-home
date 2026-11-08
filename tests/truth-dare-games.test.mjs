@@ -7,9 +7,13 @@ import {createApplication} from '../dist-node/application.mjs';
 
 test('authenticated partners can play a shared truth-or-dare game through every state', async t => {
   const dataDir=await mkdtemp(resolve(tmpdir(),'couple-truth-dare-'));
-  const origin='http://127.0.0.1:32139';
+  let origin='http://127.0.0.1:32139';
   const app=createApplication({root:resolve('dist-node'),dataDir,origin});
-  t.after(async()=>{await app.close();await rm(dataDir,{recursive:true,force:true})});
+  const address=await new Promise((resolveAddress,reject)=>app.server.once('error',reject).listen(0,'127.0.0.1',()=>resolveAddress(app.server.address())));
+  origin=`http://127.0.0.1:${address.port}`;
+  app.env.APP_ORIGIN=origin;
+  let streamReader;
+  t.after(async()=>{if(streamReader)await streamReader.cancel().catch(()=>{});await app.close();await rm(dataDir,{recursive:true,force:true})});
   const call=(path,{method='GET',cookie='',body}={})=>app.dispatch(new Request(origin+path,{
     method,
     headers:{
@@ -29,6 +33,7 @@ test('authenticated partners can play a shared truth-or-dare game through every 
   const p2=login.headers.get('set-cookie').split(';')[0];
   const root='/api/games/truth-dare';
   assert.equal((await call(`${root}/active`)).status,401);
+  assert.equal((await call(`${root}/stream`)).status,401);
   assert.deepEqual((await (await call(`${root}/active`,{cookie:p1})).json()).game,null);
 
   const created=await call(root,{method:'POST',cookie:p1,body:{}});
@@ -39,9 +44,19 @@ test('authenticated partners can play a shared truth-or-dare game through every 
   assert.deepEqual(first.chatMessages,[]);
   assert.equal((await call(root,{method:'POST',cookie:p2,body:{}})).status,200);
   assert.equal((await (await call(`${root}/active`,{cookie:p2})).json()).game.id,first.id);
+  const stream=await fetch(`${origin}${root}/stream`,{headers:{Cookie:p2}});
+  assert.equal(stream.status,200);
+  assert.match(stream.headers.get('content-type'),/^text\/event-stream/);
+  assert.match(stream.headers.get('cache-control'),/no-cache/);
+  assert.equal(stream.headers.get('connection'),'keep-alive');
+  streamReader=stream.body.getReader();
+  const initialEvent=await streamReader.read();
+  assert.equal(JSON.parse(new TextDecoder().decode(initialEvent.value).match(/^data: (.+)$/m)[1]).game.id,first.id);
   const firstMessage={messageId:'11111111-1111-4111-8111-111111111111',text:'你先掷，别紧张 😉'};
   const sent=await call(`${root}/${first.id}/chat`,{method:'POST',cookie:p1,body:firstMessage});
   assert.equal(sent.status,201,await sent.clone().text());
+  const chatEvent=await streamReader.read();
+  assert.equal(JSON.parse(new TextDecoder().decode(chatEvent.value).match(/^data: (.+)$/m)[1]).game.chatMessages[0].text,firstMessage.text);
   const sentGame=(await sent.json()).game;
   assert.equal(sentGame.chatMessages.length,1);
   assert.deepEqual({...sentGame.chatMessages[0],timestamp:undefined},{id:firstMessage.messageId,senderRole:'p1',text:firstMessage.text,timestamp:undefined});

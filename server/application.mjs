@@ -18,6 +18,7 @@ import * as travelFootprint from '../app/api/travel/footprints/[id]/route.ts';
 import * as travelFootprintPhoto from '../app/api/travel/footprints/[id]/photos/[photoId]/route.ts';
 import * as truthDareGames from '../app/api/games/truth-dare/route.ts';
 import * as truthDareActive from '../app/api/games/truth-dare/active/route.ts';
+import * as truthDareStream from '../app/api/games/truth-dare/stream/route.ts';
 import * as truthDareRoll from '../app/api/games/truth-dare/[id]/roll/route.ts';
 import * as truthDareChoice from '../app/api/games/truth-dare/[id]/choice/route.ts';
 import * as truthDareQuestion from '../app/api/games/truth-dare/[id]/question/route.ts';
@@ -34,6 +35,7 @@ import * as videos from './video-routes.mjs';
 const routes = new Map([['/api/home', home], ['/api/auth', auth], ['/api/passwords', passwords],
   ['/api/recovery', recovery], ['/api/backup', backup], ['/api/restore', restore], ['/api/photos', photos], ['/api/album-ai', albumAIRoutes], ['/api/album-search', albumSearch],
   ['/api/travel/footprints', travelFootprints], ['/api/games/truth-dare', truthDareGames], ['/api/games/truth-dare/active', truthDareActive]]);
+routes.set('/api/games/truth-dare/stream', truthDareStream);
 const staticFiles = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/pet-view.js', ['pet-view.js', 'text/javascript; charset=utf-8']], ['/features.js', ['features.js', 'text/javascript; charset=utf-8']], ['/room-helpers.js', ['room-helpers.js', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']], ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
@@ -242,6 +244,34 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
       if (env.APP_ORIGIN.startsWith('https:')) headers['Strict-Transport-Security'] = 'max-age=31536000';
       outgoing.writeHead(response.status, headers);
       if (incoming.method === 'HEAD' || !response.body) { outgoing.end(); return; }
+      if (response.headers.get('content-type')?.startsWith('text/event-stream')) {
+        const reader = response.body.getReader();
+        const cancelReader = () => { void reader.cancel().catch(() => {}); };
+        outgoing.once('close', cancelReader);
+        try {
+          while (!outgoing.destroyed) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (!outgoing.write(Buffer.from(value))) {
+              await new Promise(resolveDrain => {
+                const finish = () => {
+                  outgoing.off('drain', finish);
+                  outgoing.off('close', finish);
+                  resolveDrain();
+                };
+                outgoing.once('drain', finish);
+                outgoing.once('close', finish);
+                if (outgoing.destroyed) finish();
+              });
+            }
+          }
+        } finally {
+          outgoing.off('close', cancelReader);
+          if (!outgoing.destroyed) outgoing.end();
+          await reader.cancel().catch(() => {});
+        }
+        return;
+      }
       // Response bodies are bounded by the upload limits or the capped room state.
       outgoing.end(Buffer.from(await response.arrayBuffer()));
     }

@@ -28,7 +28,7 @@ test('the pet destination is hidden and the former navigation slot opens the gam
   assert.doesNotMatch(features.slice(features.indexOf('const titles='), features.indexOf('const main=')), /pet:/);
 });
 
-test('the game polls the shared API and renders each role-specific stage', () => {
+test('the game receives SSE updates and renders each role-specific stage', () => {
   const start = features.indexOf('const truthDareQuestions=');
   const end = features.indexOf('async function truthDareRefresh(', start);
   const selectors = [
@@ -95,12 +95,16 @@ test('the game polls the shared API and renders each role-specific stage', () =>
   assert.equal(nodes['#truth-dare-chat-form'].hidden,false);
   for(const endpoint of ['/api/games/truth-dare/active','/roll','/choice','/question','/answer','/chat'])assert.ok(features.includes(endpoint),endpoint);
   assert.match(features,/truthDareChatPending\.push\(message\)/);
-  assert.match(features,/setInterval\(\(\)=>truthDareRefresh\(session\),3000\)/);
+  assert.match(features,/new EventSource\('\/api\/games\/truth-dare\/stream'\)/);
+  assert.match(features,/truthDareEventSource\.onmessage=/);
+  assert.match(features,/truthDareEventSource\.onopen=/);
+  assert.match(features,/truthDareEventSource\.close\(\)/);
+  assert.doesNotMatch(features,/setInterval\(\(\)=>truthDareRefresh\(session\),3000\)/);
 });
 
 test('service worker cache version and resource URLs are refreshed', () => {
-  assert.match(sw, /couple-home-v14/);
+  assert.match(sw, /couple-home-v15/);
   assert.match(sw, /style\.css\?v=20261108-truth-chat/);
   assert.match(sw, /app\.js\?v=20261108-photo-location/);
-  assert.match(sw, /features\.js\?v=20261108-truth-chat/);
+  assert.match(sw, /features\.js\?v=20261108-truth-sse/);
 });

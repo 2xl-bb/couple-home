@@ -1,6 +1,7 @@
 import { fail, json, requireSameOrigin } from '../../../../../../lib/home-server';
 import { HomeError } from '../../../../../../lib/home-domain.mjs';
 import { findGame, gameContext, publicGame, readGame, requireStatus } from '../../../../../../lib/truth-dare-games';
+import { notifyTruthDareChanged } from '../../../../../../lib/truth-dare-stream';
 
 export const dynamic = 'force-dynamic';
 type Params = { params: Promise<{id: string}> };
@@ -28,6 +29,7 @@ export async function POST(req: Request, {params}: Params) {
       WHERE id=? AND status='waiting_winner_question' AND loser_id=?`)
       .bind(questionText, id, game.loser_id).run();
     if (!updated.meta.changes) throw new HomeError('对局状态已变化，请刷新后重试。', 409);
+    notifyTruthDareChanged(c.db);
     return json({ game: publicGame(await findGame(c.db, id), c.member.userId) });
   } catch (error) { return fail(error); }
 }

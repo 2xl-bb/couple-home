@@ -21,7 +21,7 @@ test('photo viewer displays a location action and persists a map selection',()=>
   assert.match(app,/draggable:true/);
   assert.match(css,/#photo-location-map\{height:360px/);
   assert.match(html,/app\.js\?v=20261108-photo-location/);
-  assert.match(sw,/couple-home-v14/);
+  assert.match(sw,/couple-home-v15/);
   assert.match(sw,/style\.css\?v=20261108-truth-chat/);
 });
 

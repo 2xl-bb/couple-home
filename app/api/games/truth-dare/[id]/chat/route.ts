@@ -3,6 +3,7 @@ import { HomeError } from '../../../../../../lib/home-domain.mjs';
 import {
   findGame, gameContext, MAX_CHAT_MESSAGES, parseChatMessages, publicGame, readGame,
 } from '../../../../../../lib/truth-dare-games';
+import { notifyTruthDareChanged } from '../../../../../../lib/truth-dare-stream';
 
 export const dynamic = 'force-dynamic';
 type Params = { params: Promise<{id: string}> };
@@ -45,6 +46,7 @@ export async function POST(req: Request, {params}: Params) {
       const updated = await c.db.prepare(`UPDATE truth_dare_games SET chat_messages=?
         WHERE id=? AND chat_messages=?`).bind(JSON.stringify(next), id, current.chat_messages).run();
       if (updated.meta.changes) {
+        notifyTruthDareChanged(c.db);
         return json({game: publicGame(await findGame(c.db, id), c.member.userId), existed: false}, 201);
       }
     }

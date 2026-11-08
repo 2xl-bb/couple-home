@@ -56,7 +56,7 @@ const truthDareQuestions={
  dare:['为对方选一首歌，哼出最喜欢的一句。','模仿对方的一个招牌动作，让对方猜一猜。','给对方写一句今天专属的夸奖。','一起摆一个有趣的合照姿势。','如果双方都愿意，给对方一个轻轻的吻；也可以击掌或换题。','闭上眼睛，让对方选一口喜欢的零食给你；不方便时可以换题。']
 };
 const truthDareDiceFaces=['⚀','⚁','⚂','⚃','⚄','⚅'];
-let truthDarePollTimer=null,truthDarePollRunning=false,truthDareActionRunning=false,truthDareCurrent=null,truthDareQuestionKey='',truthDareQuestionDraft='',truthDareSession=0,truthDareRollAnimation=null,truthDareRollDelay=null,truthDareChatSignature='',truthDareChatPending=[];
+let truthDarePollRunning=false,truthDareActionRunning=false,truthDareCurrent=null,truthDareQuestionKey='',truthDareQuestionDraft='',truthDareSession=0,truthDareRollAnimation=null,truthDareRollDelay=null,truthDareChatSignature='',truthDareChatPending=[],truthDareEventSource=null,truthDareStreamWasOpen=false;
 function truthDareDrawQuestion(type){
  const pool=truthDareQuestions[type],choices=pool.filter(question=>question!==truthDareQuestionDraft);
  truthDareQuestionDraft=choices[Math.floor(Math.random()*choices.length)];
@@ -210,8 +210,8 @@ function openTruthDare(){
  truthDareQuestionKey='';truthDareQuestionDraft='';truthDareCurrent=null;
  truthDareChatSignature='';truthDareChatPending=[];
  modal('🎲 异地双人真心话大冒险','<div class="truth-dare"><p class="truth-dare-caption">你们各自在自己的设备掷骰子，结果会自动同步。</p><button type="button" class="primary" id="truth-dare-start">发起新对局 ♡</button><section id="truth-dare-board" hidden><div class="truth-dare-duel"><article class="truth-dare-player"><span>成员一</span><strong id="truth-dare-die-1" class="truth-dare-die" aria-label="等待掷骰">⚄</strong></article><span class="truth-dare-versus">VS</span><article class="truth-dare-player"><span>成员二</span><strong id="truth-dare-die-2" class="truth-dare-die" aria-label="等待掷骰">⚄</strong></article></div><p id="truth-dare-status" class="truth-dare-status" role="status" aria-live="polite">正在检查对局……</p><p id="truth-dare-waiting" class="truth-dare-waiting" hidden></p><button type="button" class="primary" id="truth-dare-roll" hidden>掷骰子</button><div id="truth-dare-types" class="truth-dare-actions" hidden><button type="button" class="primary" id="truth-dare-truth">💬 真心话</button><button type="button" class="outline" id="truth-dare-dare">🔥 大冒险</button></div><section id="truth-dare-challenge" class="truth-dare-challenge" hidden><article id="truth-dare-result" class="truth-dare-result"><span id="truth-dare-kind"></span><p id="truth-dare-question"></p></article><button type="button" class="text-button" id="truth-dare-change">换一题 ↻</button><label id="truth-dare-custom-label" class="truth-dare-custom-label" for="truth-dare-custom">或者亲自写一道题 / 惩罚：</label><textarea id="truth-dare-custom" maxlength="300" placeholder="输入想问的问题，或想指定的惩罚……"></textarea><p id="truth-dare-custom-note" class="truth-dare-note" role="status"></p><div class="truth-dare-actions"><button type="button" class="primary" id="truth-dare-submit-system">提交这道题</button><button type="button" class="outline" id="truth-dare-custom-send">提交自定义题目</button></div><section id="truth-dare-answer-section" class="truth-dare-answer" hidden><label id="truth-dare-answer-label" for="truth-dare-answer-input">写下你的回答：</label><textarea id="truth-dare-answer-input" maxlength="1000" placeholder="认真回答，也可以写下此刻的心情……" hidden></textarea><button type="button" class="primary" id="truth-dare-answer-submit" hidden>提交答案</button><article id="truth-dare-answer-result" hidden><strong>输家的回答</strong><p id="truth-dare-answer-text"></p></article></section></section><p id="truth-dare-note" class="truth-dare-note">任何一方都可以跳过或换题，不必勉强。开心最重要 ♡</p><section class="truth-dare-chat" aria-label="本局聊天"><h3>和 TA 聊聊</h3><div id="truth-dare-chat-list" class="truth-dare-chat-list" role="log" aria-live="polite" aria-relevant="additions"></div><form id="truth-dare-chat-form" class="truth-dare-chat-form"><textarea id="truth-dare-chat-input" maxlength="500" rows="1" placeholder="说点什么吧……" aria-label="聊天消息"></textarea><button id="truth-dare-chat-send" type="submit" class="primary">发送</button></form></section></section></div>');
- const stopPolling=()=>{if(session!==truthDareSession)return;if(truthDarePollTimer){clearInterval(truthDarePollTimer);truthDarePollTimer=null}if(truthDareRollAnimation){clearInterval(truthDareRollAnimation);truthDareRollAnimation=null}if(truthDareRollDelay){clearTimeout(truthDareRollDelay);truthDareRollDelay=null}truthDareActionRunning=false;truthDareSession++};
- $('#modal').addEventListener('close',stopPolling,{once:true});
+ const stopStreaming=()=>{if(session!==truthDareSession)return;if(truthDareEventSource){truthDareEventSource.close();truthDareEventSource=null}truthDareStreamWasOpen=false;if(truthDareRollAnimation){clearInterval(truthDareRollAnimation);truthDareRollAnimation=null}if(truthDareRollDelay){clearTimeout(truthDareRollDelay);truthDareRollDelay=null}truthDareActionRunning=false;truthDareSession++};
+ $('#modal').addEventListener('close',stopStreaming,{once:true});
  $('#truth-dare-start').onclick=()=>truthDareAction('/api/games/truth-dare',{});
  $('#truth-dare-roll').onclick=()=>{
   if(!truthDareCurrent)return;
@@ -242,7 +242,11 @@ function openTruthDare(){
   const message={id:crypto.randomUUID(),gameId:truthDareCurrent.id,senderRole:truthDareCurrent.role,text,timestamp:Date.now(),delivery:'sending',sending:false};
   truthDareChatPending.push(message);input.value='';truthDareRenderChat(truthDareCurrent);truthDareSendChat(message);
  };
- truthDarePollTimer=setInterval(()=>truthDareRefresh(session),3000);
+ truthDareEventSource=new EventSource('/api/games/truth-dare/stream');
+ truthDareEventSource.onmessage=event=>{if(session!==truthDareSession||!$('#modal').open||!$('#truth-dare-board'))return;try{const update=JSON.parse(event.data);truthDareShowGame(update.game)}catch{void truthDareRefresh(session)}};
+ truthDareEventSource.onopen=()=>{if(session!==truthDareSession)return;if(truthDareStreamWasOpen)void truthDareRefresh(session);truthDareStreamWasOpen=true};
+ truthDareEventSource.onerror=()=>{if(session===truthDareSession&&$('#modal').open&&$('#truth-dare-status'))$('#truth-dare-status').textContent='实时连接暂时中断，正在自动重连……'};
+ truthDareEventSource.addEventListener('sync-error',()=>{if(session===truthDareSession&&$('#modal').open&&$('#truth-dare-status'))$('#truth-dare-status').textContent='实时同步暂不可用，正在重试……'});
  truthDareRefresh(session);
 }
 window.LittleDaysTruthDare={open:openTruthDare,questions:truthDareQuestions};

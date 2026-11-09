@@ -16,6 +16,7 @@
 @media(max-width:720px){
 html{scroll-padding-top:130px}body{font-size:15px;line-height:1.8}main{padding:0 16px}header{height:auto;min-height:78px;display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 16px 0;background:#fbf5ed;position:sticky;top:0;z-index:20;box-shadow:0 3px 14px #7154430a}header nav{display:flex;grid-column:1/-1;grid-row:2;flex-wrap:nowrap;gap:18px;overflow-x:auto;max-width:100%;padding:2px 0 7px;scrollbar-width:thin;overscroll-behavior-x:contain}header nav a{flex-shrink:0;min-height:44px;display:flex;align-items:center;font-size:13px;color:#735d4c}header>.outline{min-height:44px;padding:7px 12px}.brand{min-width:0;letter-spacing:1px}.welcome-strip{font-size:12px;align-items:center}.welcome-strip>span{max-width:56%}.sync-pill{font-size:11px;min-height:44px}.daily-shortcuts{display:block;padding:16px;margin-top:8px}.daily-shortcuts span{font-size:13px}.shortcut-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:13px}.shortcut-links a{padding:8px 2px;font-size:12px;border-radius:12px}.hero{padding-top:24px}h1{font-size:32px;line-height:1.55}.hero-desc{font-size:14px}.hero .eyebrow{font-size:9px;letter-spacing:1px}.hero-buttons{gap:8px 16px}.hero-buttons .primary{font-size:14px}.couple-sign{font-size:12px;margin-top:18px}.hero .scrapbook{width:100%;max-width:340px;height:315px;margin:30px auto 0}.photo-frame{width:70%;left:8px}.landscape{height:195px}.day-card{width:175px;padding:14px 16px;right:8px;bottom:8px}.day-card p{font-size:10px}.scribble{font-size:14px}.little-stamp{right:12px}.top-grid{grid-template-columns:1fr;gap:14px}.top-grid article{min-height:0;padding:22px}.top-grid h2{font-size:23px}.top-grid .section-kicker,.section-kicker{font-size:10px;letter-spacing:1.2px}.mood-card>p,.date-card>p,.partner-mood,.next-day p{font-size:13px;color:#806a57}.moods{gap:8px;justify-content:space-around}.moods button{width:54px;min-height:58px}.moods small{font-size:12px;color:#7a624d}.section,.together-section{padding-top:40px}.section-head{align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:20px}.section-head h2{font-size:25px}.section-head p{font-size:14px}.section-head>.outline{font-size:13px}.feature-card{padding:22px 18px}.feature-card h3{font-size:23px}.feature-card>p{font-size:14px}.daily-question{min-height:0;font-size:20px!important}.feature-toolbar{gap:10px}.feature-toolbar>*{flex:1 1 120px;font-size:14px}.compact-row{align-items:flex-start;flex-wrap:wrap;gap:4px}.compact-row span{flex:1 1 180px}.compact-row button{font-size:13px}.compact-list,.coupon-list{max-height:none;overflow:visible}.calendar-grid{gap:2px}.calendar-day{min-width:0;min-height:44px;font-size:13px}.calendar-toolbar button{min-width:44px;min-height:44px}.calendar-weekday{font-size:12px;color:#806a57}.pet-content{padding:22px 18px}.pet-heading{flex-wrap:wrap}.pet-heading h2{font-size:24px}.pet-heading .text-button,.pet-subtitle,.pet-identity,.pet-stat>div,.care-bottom>span,.care-bottom>button,.pet-gentle{font-size:12px;color:#806b56}.pet-identity{flex-wrap:wrap}.pet-actions button{font-size:13px;min-height:48px;padding:10px 6px}.pet-bubble{font-size:12px;color:#806b56}.pet-stats{gap:10px}.pet-stat .meter{height:7px}.together-bar,#member-status span,#account-info{font-size:12px}.together-bar button{min-height:44px}.story p,.letter-message,.wish-row,.photo-caption{font-size:14px}.story time,.little-coupon p,.corner-profile dl,.room-unlocks{font-size:13px}.little-coupon small,.little-coupon>div,.answer-note small,.drawn-idea small,.drawn-idea span,.compact-row small{font-size:12px;color:#806a57}.corner-profile dl{grid-template-columns:1fr;gap:3px}.corner-profile dd{margin-bottom:10px}.corner-profile dt{color:#806a57}.key-login-card>p{font-size:14px}.key-login-card label,.login-note{font-size:13px}.key-login-card>small,.owner-login-link,.login-bottom{font-size:12px;color:#806a57}.owner-login-link{min-height:44px;display:flex;align-items:center;justify-content:center}dialog{max-width:calc(100% - 24px);padding:22px 18px;overflow-wrap:anywhere}dialog .text-button,dialog .outline,dialog .primary{min-height:44px}dialog input,dialog select,dialog textarea{max-width:100%;min-width:0}.form-actions{flex-wrap:wrap;gap:10px}.form-actions>*{white-space:normal;flex:1 1 120px}footer small{font-size:12px;color:#806a57}#toast{max-width:calc(100vw - 32px);white-space:normal;padding-bottom:max(12px,env(safe-area-inset-bottom))}
 }
+
 @media(max-width:360px){main{padding:0 12px}h1{font-size:29px}.brand{font-size:14px}.hero .scrapbook{height:295px}.landscape{height:175px}.day-card{width:156px}.day-card strong{font-size:44px}.shortcut-links{grid-template-columns:repeat(2,minmax(0,1fr))}.pet-stats{gap:6px}.pet-stat>div{font-size:11px}}
 
 @media(max-width:720px){.top-grid .date-card{display:block}.date-card .outline{margin-top:12px}.section-head>.outline{margin-top:0}.photo-item p,.storage-note{font-size:13px;color:#806a57}}
@@ -56,6 +57,24 @@ dialog{position:fixed;inset:auto 0 0;margin:0;width:100%;max-width:100%;max-heig
 .login-password-wrap{position:relative}.login-password-wrap input{width:100%;padding-right:64px!important}.login-password-wrap>button{position:absolute;right:5px;top:4px;min-height:42px;min-width:50px;font-size:13px;color:#795643}.login-retry{padding:12px;border:1px solid #e2cbb5;border-radius:12px;background:#fff7e9;margin:10px 0}.login-retry p{font-size:12px;line-height:1.8;margin:8px 0 0}.login-retry button{min-height:44px;width:100%;font-size:13px}.album-tools{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:0 0 20px}.album-tools label{font-size:12px;color:#886b55;display:grid;gap:7px}.album-tools select{min-height:44px;border:1px solid #ddcbb7;border-radius:10px;background:#fffaf3;color:#70543f;padding:8px 12px;font:inherit;font-size:16px;max-width:220px}.album-tools>span{font-size:12px;color:#997b61;padding-bottom:10px}.album-more{display:block;min-height:48px;margin:24px auto 0}.photo-open{display:block;width:100%;padding:0;border:0;background:transparent;border-radius:8px;overflow:hidden}.photo-open img{display:block;width:100%}.photo-open:focus-visible{outline:3px solid #ad8163;outline-offset:4px}.photo-viewer>img{display:block;width:100%;max-height:60dvh;object-fit:contain;background:#eee2d4;border-radius:12px;min-height:120px}.photo-viewer>p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.8}.photo-viewer-nav{display:flex;align-items:center;justify-content:space-between;gap:10px}.photo-viewer-nav button{min-height:44px;font-size:13px}.photo-viewer-nav span{font-size:12px;color:#96765c;white-space:nowrap}.draft-box{border:1px dashed #dfc8b1;border-radius:12px;padding:12px 14px;margin:18px 0 8px;background:#fff9ef}.draft-choice{display:flex;align-items:center;gap:9px;font-size:13px;min-height:40px}.draft-choice input{accent-color:#916b50;width:18px;height:18px}.draft-box .form-help{font-size:12px;margin:4px 0;line-height:1.8}.draft-actions{display:flex;gap:8px 16px;flex-wrap:wrap}.draft-actions button{min-height:44px;font-size:12px}.draft-status{font-size:12px;line-height:1.7;color:#87704c;margin:0}.draft-status:empty{display:none}
 @media(max-width:720px){.album-tools select{max-width:190px}.album-tools>span{max-width:115px;text-align:right}.photo-viewer-nav button{padding:9px 10px}.draft-box{padding:10px 12px}.draft-choice{font-size:12px}.photo-open img{aspect-ratio:1;object-fit:cover}.album-more{width:100%}}
 @media(max-width:720px){.login-gate{overflow:clip;grid-template-columns:minmax(0,1fr)}.key-login-card{width:100%;max-width:420px;justify-self:center}}
+
+/* The album timeline has a more specific desktop grid rule than .photo-grid. */
+@media(max-width:768px){
+  .album-timeline .photo-grid{grid-template-columns:minmax(0,1fr);gap:22px}
+  .album-timeline .photo-grid>.photo-item{width:100%;padding:0 0 14px;border-radius:12px;box-shadow:0 5px 18px #71564012}
+  .album-timeline .photo-open{width:100%}
+  .album-timeline .photo-open img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover}
+  .album-timeline .photo-caption-list{gap:9px;margin:12px 0 6px;padding-inline:14px}
+  .album-timeline .photo-caption-entry>div{align-items:baseline;flex-wrap:nowrap;gap:8px;font-size:11px}
+  .album-timeline .photo-caption-entry>div>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#755e4d}
+  .album-timeline .photo-caption-entry time{flex:none;color:#a29486;font-size:10px}
+  .album-timeline .photo-caption-entry p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:4px;white-space:normal;overflow-wrap:anywhere;line-height:1.7}
+  .album-timeline .photo-caption-entry.is-addition{margin-inline:12px;padding:8px 11px;border-radius:10px;background:#f3e9dc}
+  .album-timeline .photo-caption-entry.is-addition p{-webkit-line-clamp:2;margin-bottom:0}
+  .album-timeline .photo-caption-add{width:34px;height:34px;min-height:34px;margin:6px 0 0 13px;font-size:14px}
+  .album-timeline .photo-delete{right:10px;top:10px;width:28px;height:28px;opacity:.72}
+  .album-timeline .album-tags{padding-inline:14px}
+}
 
 .export-result{font-size:13px;line-height:1.9;color:#856b56;margin:14px 0;overflow-wrap:anywhere}.export-result a{display:flex;min-height:46px;margin-top:12px}
 /* First visit uses the same card on desktop and mobile, with separate member passwords. */
@@ -167,5 +186,43 @@ dialog{position:fixed;inset:auto 0 0;margin:0;width:100%;max-width:100%;max-heig
     align-items: center !important;
     justify-content: center !important;
     font-size: 10px !important; /* 字体强制变小，防止挤爆 */
+  }
+}
+
+/* 手机端相册强制单列布局 */
+@media screen and (max-width: 768px) {
+  .album-timeline .photo-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .album-timeline .photo-card {
+    width: 100% !important;
+    margin-bottom: 12px;
+  }
+
+  .album-timeline .photo-card img {
+    width: 100% !important;
+    height: 250px !important;
+    object-fit: cover !important;
+    border-radius: 12px;
+  }
+
+  /* 文字截断，最多显示两行，防止撑爆 */
+  .album-timeline .photo-caption {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    margin-top: 8px;
+  }
+
+  /* 追加留言的小气泡也做截断处理 */
+  .album-timeline .photo-caption-entry {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 1 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
   }
 }

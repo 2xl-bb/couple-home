@@ -8,6 +8,15 @@ test('mobile album uses a full-width single column with adaptive media',()=>{
   assert.match(css,/@media\(max-width:768px\)[\s\S]*?\.photo-grid\{grid-template-columns:minmax\(0,1fr\);gap:28px\}/);
   assert.match(css,/@media\(max-width:768px\)[\s\S]*?\.photo-item[^}]*width:100%/);
   assert.match(css,/@media\(max-width:768px\)[\s\S]*?\.photo-open img[^}]*aspect-ratio:4\/3[^}]*object-fit:cover/);
+  const desktopGrid=css.lastIndexOf('.album-timeline .photo-grid{grid-template-columns:repeat(3,minmax(0,1fr))');
+  const phoneGrid=css.lastIndexOf('.album-timeline .photo-grid{grid-template-columns:minmax(0,1fr)');
+  assert.ok(phoneGrid>desktopGrid,'mobile one-column override must follow the higher-specificity desktop grid');
+  assert.match(css,/\.album-timeline \.photo-grid>\.photo-item\{[^}]*width:100%[^}]*border-radius:12px[^}]*box-shadow:/);
+  assert.match(css,/\.album-timeline \.photo-open img\{[^}]*width:100%[^}]*height:auto/);
+  assert.match(css,/\.album-timeline \.photo-caption-entry p\{[^}]*display:-webkit-box[^}]*-webkit-line-clamp:2[^}]*overflow:hidden/);
+  assert.match(css,/\.album-timeline \.photo-caption-entry\.is-addition p\{-webkit-line-clamp:2/);
+  assert.match(css,/\.album-timeline \.photo-caption-entry time\{[^}]*color:#a29486/);
+  assert.match(css,/\.album-timeline \.photo-caption-add\{[^}]*width:34px[^}]*height:34px/);
 });
 
 test('photo delete control is compact and requires native confirmation',()=>{

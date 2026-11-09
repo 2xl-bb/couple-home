@@ -37,4 +37,7 @@ await writeFile(resolve(output, 'package.json'), JSON.stringify({ name: 'our-lit
   engines: { node: '>=22.18.0' }, scripts: { start: 'node --env-file-if-exists=.env server.mjs',
     admin: 'node --env-file-if-exists=.env admin.mjs', backup: 'node --env-file-if-exists=.env backup.mjs' } }, null, 2));
 await writeFile(resolve(output, 'start.cmd'), '@echo off\r\ncd /d "%~dp0"\r\nnode --env-file-if-exists=.env server.mjs\r\npause\r\n');
+const { verifyAssetVersions } = await import('./verify-asset-versions.mjs');
+const versions = await verifyAssetVersions(output);
+console.log(`静态资源版本校验通过（${versions.count} 个文件）`);
 console.log('独立 Node.js 部署包已生成：' + output);

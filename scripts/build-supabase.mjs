@@ -53,4 +53,7 @@ await writeFile(resolve(output, 'package.json'), JSON.stringify({
   scripts: { start: 'node server.mjs' },
   dependencies: { pg: '8.23.1', '@aws-sdk/client-s3': '3.1160.0', '@aws-sdk/s3-request-presigner': '3.1160.0' },
 }, null, 2));
+const { verifyAssetVersions } = await import('./verify-asset-versions.mjs');
+const versions = await verifyAssetVersions(output);
+console.log(`静态资源版本校验通过（${versions.count} 个文件）`);
 console.log('Render + Supabase 部署包已生成：' + output);

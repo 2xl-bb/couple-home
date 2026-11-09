@@ -3,6 +3,34 @@
   let query = '', category = '', matches = null, searchIndex = '', searchVersion = 0, epoch = 0, searching = false;
   let config = null, checking = false, checkedAt = 0, organizing = false;
   const indexVersion = photos => JSON.stringify(photos.map(photo => [photo.id, photo.ai?.updatedAt]));
+  /* 上传前压缩：长边不超过 1920px，JPEG 质量 0.8。纯 Canvas，无第三方依赖。 */
+  const COMPRESS_MAX_EDGE = 1920, COMPRESS_QUALITY = .8;
+  async function compressImage(file, options) {
+    if (!file || !String(file.type || '').toLowerCase().startsWith('image/')) throw new Error('只能压缩图片文件。');
+    const maxEdge = Number(options?.maxEdge) > 0 ? Number(options.maxEdge) : COMPRESS_MAX_EDGE;
+    const quality = Number(options?.quality) > 0 ? Number(options.quality) : COMPRESS_QUALITY;
+    const url = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      const loaded = new Promise((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error('图片无法读取，或格式不受当前浏览器支持。'));
+      });
+      image.src = url;
+      try { await (image.decode ? image.decode() : loaded); } catch { await loaded; }
+      const sourceWidth = image.naturalWidth || image.width, sourceHeight = image.naturalHeight || image.height;
+      if (!sourceWidth || !sourceHeight) throw new Error('图片无法读取，或格式不受当前浏览器支持。');
+      const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight));
+      const width = Math.max(1, Math.round(sourceWidth * scale)), height = Math.max(1, Math.round(sourceHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('图片暂时无法处理。');
+      context.fillStyle = '#fff'; context.fillRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+      return await new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('图片暂时无法处理。')), 'image/jpeg', quality));
+    } finally { URL.revokeObjectURL(url); }
+  }
   function filter(photos, month) {
     if (matches && searchIndex !== indexVersion(photos)) matches = null;
     const words = query.toLocaleLowerCase().split(/\s+/).filter(Boolean);
@@ -84,7 +112,7 @@
     });
     $('#active-form button[type="submit"]').textContent = '确认并开始整理';
   }
-  root.LittleDaysAlbum = { filter, renderTools, reset };
+  root.LittleDaysAlbum = { filter, renderTools, reset, compressImage };
   $('#album-query').oninput = event => { searchVersion++; searching = false; query = event.target.value.trim(); matches = null; paint(); };
   $('#album-search-form').onsubmit = event => { event.preventDefault(); searchVersion++; searching = false; query = $('#album-query').value.trim(); matches = null; paint(); };
   $('#album-semantic').onclick = semantic;

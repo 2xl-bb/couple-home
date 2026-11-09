@@ -19,6 +19,14 @@ test('mobile album uses a full-width single column with adaptive media',()=>{
   assert.match(css,/\.album-timeline \.photo-caption-add\{[^}]*width:34px[^}]*height:34px/);
 });
 
+test('mobile album feed uses 16px gaps, 12px card padding and two-line clamps',()=>{
+  assert.match(css,/\.album-timeline \.photo-grid\{grid-template-columns:minmax\(0,1fr\);gap:16px/);
+  assert.match(css,/\.album-timeline \.photo-grid>\.photo-item\{[^}]*padding:12px[^}]*border-radius:12px[^}]*box-shadow:0 2px 10px/);
+  assert.match(css,/\.album-timeline \.photo-caption-entry p\{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden/);
+  assert.match(css,/\.album-timeline \.photo-caption-entry\.is-addition\{[^}]*border-radius:10px[^}]*background:#f3e9dc/);
+  assert.doesNotMatch(css,/\.album-timeline \.photo-card|\.album-timeline \.photo-caption\{/,'dead timeline selectors from the earlier mobile patch must stay removed');
+});
+
 test('photo delete control is compact and requires native confirmation',()=>{
   assert.match(css,/\.photo-delete\{[^}]*position:absolute[^}]*right:17px[^}]*top:17px[^}]*background:rgba\(28,25,23,\.62\)[^}]*opacity:\.6/);
   assert.match(app,/confirm\('确定要移除这张照片吗？'\)/);

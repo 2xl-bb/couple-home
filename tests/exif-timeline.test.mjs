@@ -33,16 +33,28 @@ test('exifr reads an old DateTimeOriginal fixture',async()=>{
   assert.equal(metadata.DateTimeOriginal.getMonth(),2);
 });
 
-test('compressPhoto downsizes images to 1600px and encodes JPEG at 0.82',async()=>{
-  const source=await readFile('public/app.js','utf8'),code=source.slice(source.indexOf('async function compressPhoto'),source.indexOf('async function extractPhotoMeta'));
+test('album.js compressImage downsizes images to 1920px and encodes JPEG at 0.8',async()=>{
+  const source=await readFile('public/album.js','utf8'),code=source.slice(source.indexOf('  const COMPRESS_MAX_EDGE'),source.indexOf('  function filter(photos, month)'));
   let encoded,revoked=false;
-  class Image{constructor(){this.width=3200;this.height=2000}async decode(){}set src(value){this.source=value}}
+  class Image{constructor(){this.width=3200;this.height=2000;this.naturalWidth=3200;this.naturalHeight=2000}async decode(){}set src(value){this.source=value}}
   const canvas={getContext:()=>({fillRect(){},drawImage(){}}),toBlob(callback,type,quality){encoded={type,quality,width:this.width,height:this.height};callback(new Blob(['jpeg'],{type}))}};
-  const context=vm.createContext({Image,URL:{createObjectURL:()=> 'blob:photo',revokeObjectURL:()=>{revoked=true}},document:{createElement:()=>canvas},Promise,Error});
+  const context=vm.createContext({Image,URL:{createObjectURL:()=>'blob:photo',revokeObjectURL:()=>{revoked=true}},document:{createElement:()=>canvas},Promise,Error});
   vm.runInContext(code,context);
-  const output=await context.compressPhoto({type:'image/png',size:1024});
-  assert.equal(encoded.type,'image/jpeg');assert.equal(encoded.quality,.82);assert.equal(encoded.width,1600);assert.equal(encoded.height,1000);
+  const output=await context.compressImage({type:'image/png',size:1024});
+  assert.equal(encoded.type,'image/jpeg');assert.equal(encoded.quality,.8);assert.equal(encoded.width,1920);assert.equal(encoded.height,1200);
   assert.equal(output.type,'image/jpeg');assert.equal(revoked,true);
+  assert.match(source,/root\.LittleDaysAlbum = \{[^}]*compressImage/);
+});
+
+test('compressPhoto delegates to the shared 1920px/0.8 canvas encoder',async()=>{
+  const source=await readFile('public/app.js','utf8'),code=source.slice(source.indexOf('async function compressPhoto'),source.indexOf('async function extractPhotoMeta'));
+  let called=null;
+  const context=vm.createContext({Promise,Error,LittleDaysAlbum:{compressImage:async(file,options)=>{called={file,options};return new Blob(['jpeg'],{type:'image/jpeg'})}}});
+  vm.runInContext(code,context);
+  const file={type:'image/png',size:1024},output=await context.compressPhoto(file);
+  assert.equal(called.file,file);assert.equal(called.options.maxEdge,1920);assert.equal(called.options.quality,.8);
+  assert.equal(output.type,'image/jpeg');
+  await assert.rejects(()=>context.compressPhoto({type:'image/png',size:21*1024*1024}),/20MB/);
 });
 
 test('exifr parses GPS coordinates when the GPS parser is enabled',async()=>{

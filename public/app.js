@@ -222,17 +222,12 @@ document.querySelectorAll('[data-mood]').forEach(b=>b.onclick=async()=>{if(!need
 $('.date-card .section-kicker').textContent='TRUTH OR DARE';$('.date-card h2').textContent='来一场轻松的小挑战';$('#date-idea').textContent='两个人各掷一颗骰子，比出今天的赢家，再抽一条只属于你们的题目。';$('.date-symbol').textContent='⚄';$('#random-date').textContent='🎲 双人掷骰子 ↗';$('#random-date').onclick=()=>window.LittleDaysTruthDare.open();
 $('#wish-form').onsubmit=async e=>{e.preventDefault();if(!needReady())return;const text=$('#wish-input').value.trim();if(!text)return;const btn=e.submitter;btn.disabled=true;try{await mutate('wish.add',{id:uid(),text});$('#wish-input').value='';toast('又多了一个一起期待的以后')}catch(err){toast(err.message)}finally{btn.disabled=false}};
 $('#add-letter').onclick=()=>{if(!needReady())return;modal('写给最喜欢的那个人');form(field('署名','author','text',state.names[(me?.slot||1)-1],'required maxlength="20"')+'<label class="form-field">想说的话<textarea name="text" required maxlength="3000" placeholder="亲爱的，今天想对你说……"></textarea></label>'+field('约定打开日期（可选）','openDate','date','',`min="${today()}"`)+'<p class="form-help">未来信的正文会在云端收好，到了约定日期再一起打开。日期按北京时间计算。</p>',async d=>{await mutate('letter.add',{...Object.fromEntries(d),id:uid()});close();toast('你的心意，已经在小屋里收好了 ♡')},'letter')};
+function formatBytes(bytes){if(!bytes)return '0 KB';return bytes>=1048576?`${(bytes/1048576).toFixed(1)} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}
 async function compressPhoto(file){
  if(!file.type.startsWith('image/')||file.size>20*1024*1024)throw new Error('请选择 20MB 以内的可读取图片。');
- const url=URL.createObjectURL(file);
- try{
-  const img=new Image();img.src=url;await img.decode();
-  const scale=Math.min(1,1600/Math.max(img.width,img.height)),width=Math.round(img.width*scale),height=Math.round(img.height*scale);
-  const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
-  const context=canvas.getContext('2d');if(!context)throw new Error('图片暂时无法处理。');
-  context.fillStyle='#fff';context.fillRect(0,0,width,height);context.drawImage(img,0,0,width,height);
-  return await new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('图片暂时无法处理。')),'image/jpeg',.82));
- }finally{URL.revokeObjectURL(url)}
+ const compress=globalThis.LittleDaysAlbum?.compressImage;
+ if(typeof compress!=='function')throw new Error('图片压缩组件还没有就绪，请刷新页面后重试。');
+ return compress(file,{maxEdge:1920,quality:.8});
 }
 async function extractPhotoMeta(file, now = Date.now()) {
   let takenAt = now, lat = null, lng = null;
@@ -316,7 +311,26 @@ function addPhoto(){
    albumMonth='';if(typeof resetAlbumTimeline==='function')resetAlbumTimeline();await refreshNow();$('#modal').dataset.busy='0';close();toast(`${files.length} 张回忆已收藏 ♡`)
   }catch(e){note.textContent=`已处理 ${saved} / ${files.length} 张。${e.message} 点击重新上传可继续，不会重复保存。`;$('#active-form button[type="submit"]').textContent='重新上传 ↻';try{await refreshNow()}catch{}throw e}finally{$('#modal').dataset.busy='0'}
  });
- let preview='';$('#active-form input[name="photo"]').onchange=e=>{if(preview)URL.revokeObjectURL(preview);const files=Array.from(e.target.files||[]);$('#photo-preview').hidden=!files.length;if(files.length){preview=URL.createObjectURL(files[0]);$('#photo-preview').src=preview}$('#upload-status').textContent=files.length?'已选择 '+files.length+' 张照片，可继续更换选择。':''};$('#modal').addEventListener('close',()=>{if(preview)URL.revokeObjectURL(preview)},{once:true});
+ let preview='',previewToken=0;
+ $('#active-form input[name="photo"]').onchange=e=>{
+  const files=Array.from(e.target.files||[]),token=++previewToken;
+  if(preview){URL.revokeObjectURL(preview);preview=''}
+  $('#photo-preview').hidden=true;
+  if(!files.length){$('#upload-status').textContent='';return}
+  const first=files.find(file=>/^image\//i.test(file.type)&&file.size>0&&file.size<=20*1024*1024);
+  $('#upload-status').textContent=`已选择 ${files.length} 张照片，正在压缩预览……`;
+  if(!first){$('#upload-status').textContent=`已选择 ${files.length} 张照片，可继续更换选择。`;return}
+  compressPhoto(first).then(blob=>{
+   if(token!==previewToken)return;
+   preview=URL.createObjectURL(blob);$('#photo-preview').src=preview;$('#photo-preview').hidden=false;
+   $('#upload-status').textContent=`已选择 ${files.length} 张照片。首张压缩后 ${formatBytes(blob.size)}（原图 ${formatBytes(first.size)}），其余照片会在上传时逐张压缩。`;
+  }).catch(()=>{
+   if(token!==previewToken)return;
+   preview=URL.createObjectURL(first);$('#photo-preview').src=preview;$('#photo-preview').hidden=false;
+   $('#upload-status').textContent=`已选择 ${files.length} 张照片，可继续更换选择。`;
+  });
+ };
+ $('#modal').addEventListener('close',()=>{previewToken++;if(preview){URL.revokeObjectURL(preview);preview=''}},{once:true});
 }
 $('#add-photo').onclick=addPhoto;
 function putVideo(url,file,onProgress){return new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open('PUT',url);xhr.timeout=20*60*1000;xhr.setRequestHeader('Content-Type',file.type);xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(Math.round(e.loaded/e.total*100))};xhr.onerror=()=>reject(new Error('视频上传连接中断。'));xhr.ontimeout=()=>reject(new Error('视频上传超时。'));xhr.onload=()=>xhr.status>=200&&xhr.status<300?resolve():reject(new Error('R2 没有接受这段视频。'));xhr.send(file)})}

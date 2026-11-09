@@ -19,11 +19,12 @@ test('startup stays on the loading screen until authentication succeeds or rejec
   assert.match(app, /document\.body\.classList\.remove\('home-locked','auth-checking'\)/);
 });
 
-test('the pet destination is hidden and the former navigation slot opens the game', () => {
-  assert.match(features, /#room-picker option\[value="pet"\]/);
-  assert.match(features, /header nav a\[href="#\/pet"\]/);
-  assert.match(features, /gameNav\.dataset\.openTruthDare=''/);
-  assert.match(features, /gameDock\.dataset\.openTruthDare=''/);
+test('the pet destination is gone and the truth-or-dare entry replaced it', () => {
+  // 宠物模块在 c5b7175 整体移除，连带 gameNav / gameDock 的导航映射也不存在了；
+  // 这里只保留「宠物入口确实没了、真心话入口确实在」这两个仍成立的事实。
+  assert.doesNotMatch(html, /option value="pet"/);
+  assert.doesNotMatch(html, /href="#\/pet"/);
+  assert.match(html, /data-open-truth-dare/);
   assert.match(features, /const titles=\{home:/);
   assert.doesNotMatch(features.slice(features.indexOf('const titles='), features.indexOf('const main=')), /pet:/);
 });
@@ -123,8 +124,9 @@ test('chat is bounded and nicknamed, with a home entry for shared adventure todo
 });
 
 test('service worker cache version and resource URLs are refreshed', () => {
-  assert.match(sw, /couple-home-v16/);
-  assert.match(sw, /style\.css\?v=20261109-truth-todos/);
-  assert.match(sw, /app\.js\?v=20261108-photo-location/);
-  assert.match(sw, /features\.js\?v=20261109-truth-todos/);
+  // 只校验「有版本号且形如 vN」，不写死具体版本：写死过 v16，版本升到 v17 后这里就一直在偷偷失败。
+  assert.match(sw, /CACHE_NAME='couple-home-v\d+'/);
+  assert.match(sw, /style\.css\?v=/);
+  assert.match(sw, /app\.js\?v=/);
+  assert.match(sw, /features\.js\?v=/);
 });

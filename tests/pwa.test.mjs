@@ -36,7 +36,7 @@ test('PWA icons are real PNG files with the declared dimensions',async()=>{
 test('service worker registration and cache rules exclude private and streaming traffic',async()=>{
   const app=await text('public/app.js'),worker=await text('public/sw.js');
   assert.match(app,/serviceWorker\.register\('\/sw\.js'/);
-  assert.match(worker,/CACHE_NAME='couple-home-v8'/);
+  assert.match(worker,/CACHE_NAME='couple-home-v\d+'/);
   assert.match(worker,/\/exifr\.js\?v=7\.1\.3/);
   assert.match(worker,/url\.origin!==self\.location\.origin/);
   assert.match(worker,/url\.pathname\.startsWith\('\/api\/'\)/);
@@ -45,6 +45,15 @@ test('service worker registration and cache rules exclude private and streaming 
   assert.match(worker,/request\.destination==='video'/);
   assert.match(worker,/request\.destination==='audio'/);
   assert.doesNotMatch(worker,/supabase/i);
+});
+
+test('asset versions in the document and in STATIC_ASSETS never drift',async()=>{
+  // 版本号目前是 HTML 与 sw.js 两处手写的字符串，最容易漏改一处。
+  // 这里做最小防漂移校验：HTML 引用的每个 ?v= 都必须原样出现在 STATIC_ASSETS。
+  const html=await text('app/home.html'),worker=await text('public/sw.js');
+  const versions=[...html.matchAll(/\/([\w.-]+\.(?:css|js))\?v=([^"']+)/g)];
+  assert.ok(versions.length>=4,'HTML 中应至少有 4 个带版本号的静态资源');
+  for(const [,file,version] of versions) assert.ok(worker.includes(`/${file}?v=${version}`),`${file} 的 ?v=${version} 没有同步到 public/sw.js 的 STATIC_ASSETS`);
 });
 
 test('Render serves PWA metadata and icons publicly without a Session',async()=>{

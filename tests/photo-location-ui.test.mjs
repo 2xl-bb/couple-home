@@ -20,9 +20,9 @@ test('photo viewer displays a location action and persists a map selection',()=>
   assert.match(app,/nominatim\.openstreetmap\.org\/reverse/);
   assert.match(app,/draggable:true/);
   assert.match(css,/#photo-location-map\{height:360px/);
-  assert.match(html,/app\.js\?v=20261108-photo-location/);
-  assert.match(sw,/couple-home-v16/);
-  assert.match(sw,/style\.css\?v=20261109-truth-todos/);
+  assert.match(html,/app\.js\?v=/);
+  assert.match(sw,/CACHE_NAME='couple-home-v\d+'/);
+  assert.match(sw,/style\.css\?v=/);
 });
 
 test('photos with null GPS are treated as unmarked rather than coordinates at zero',()=>{

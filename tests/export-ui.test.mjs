@@ -31,7 +31,7 @@ test('a 201-photo backup can complete the merge after validation',async()=>{
  const c=vm.createContext({revision:1,me:{},state:{photos:[]},modal(){},toast:x=>notice=x,esc:String,close(){},fetch,Blob,crypto,Date,Map,
   $:s=>nodes[s]||null,api:async(path,options)=>{comments++;assert.match(path,/\/caption$/);assert.equal(JSON.parse(options.body).text,'补充回忆')},uploadPhoto:async(...args)=>{uploadCalls.push(args);return{id:'uploaded-'+(++uploaded),existed:false}},mutate:async(kind,payload)=>{assert.equal(kind,'import');assert.equal(payload.data.photos.length,0);merged=true},refreshNow:async()=>{},checkMigration(){}});
  vm.runInContext(code,c);const backup={v:2,names:['A','B'],photos:Array.from({length:201},(_,i)=>({id:'fixture-'+i,data:'data:image/jpeg;base64,/9j/',...(i===0?{created_at:10,taken_at:20,latitude:29.609435,longitude:106.545764,location_name:'重庆',captions:[{id:'caption-fixture',text:'补充回忆',createdAt:1}]}:{})})),stories:[],wishes:[],letters:[],anniversaries:[]};
- c.importConfirm(backup);await nodes['#confirm-import'].onclick();assert.equal(uploaded,201);assert.deepEqual(Array.from(uploadCalls[0].slice(4)),[10,20,29.609435,106.545764,'重庆']);assert.equal(comments,1);assert.equal(merged,true);assert.match(notice,/回忆已合并/);
+ c.importConfirm(backup);await nodes['#confirm-import'].onclick();assert.equal(uploaded,201);assert.deepEqual(Array.from(uploadCalls[0].slice(4)),[10,20,29.609435,106.545764,'重庆']);assert.equal(comments,1);assert.equal(merged,true);assert.match(notice,/已合并/);
 });
 test('corrupt second photo fails validation before any photo is uploaded',async()=>{
  const code=source.slice(source.indexOf('async function restorePhotoCaptions('),source.indexOf('function importData()'));

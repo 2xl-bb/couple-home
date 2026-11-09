@@ -10,7 +10,20 @@
 <link rel="stylesheet" href="./vendor/leaflet.css">
 <link rel="stylesheet" href="./vendor/MarkerCluster.css">
 <link rel="stylesheet" href="./vendor/MarkerCluster.Default.css">
+<!-- 返回主站前先在后台预渲染 /。Chromium 之外（iOS Safari / Firefox）会直接忽略这段 JSON，
+     退回普通整页导航，不影响功能。下面 #homeBtn 必须是真实的 <a href="/">，
+     否则 moderate（悬停 200ms / pointerdown / 移动端视口启发法）没有可关联的链接。 -->
+<script type="speculationrules">
+{
+  "prerender": [
+    { "urls": ["/"], "eagerness": "moderate" }
+  ]
+}
+</script>
 <style>
+  /* 与主站 style.css 成对 opt-in，/travel/ → / 才有跨文档过渡 */
+  @view-transition{navigation:auto}
+  @media(prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation-duration:0s!important}}
   :root {
     --warm: #e8823c; --paper: #faf6ee; --ink: #3a342c; --ink-soft: #8a7f6e; --line: #e8dfd0;
   }
@@ -35,7 +48,9 @@
   .serif { font-family: "STSong", "SimSun", "Noto Serif SC", serif; }
 
   #map { position: absolute; inset: 0; z-index: 1; }
-  #homeBtn { position:static;flex:0 0 auto;min-height:36px;padding:0 12px;border:1px solid rgba(232,223,208,.9);border-radius:20px;background:var(--paper);color:var(--ink);font:600 13px/1 "PingFang SC","Microsoft YaHei",sans-serif;cursor:pointer; }
+  /* 原本是 <button>，#topbar button 的特异性高于 #homeBtn 并覆盖了边框/内边距/字体。
+     改成 <a> 后那条规则不再命中，这里把旧的计算样式显式写回来，保证外观不变。 */
+  #homeBtn { position:static;flex:0 0 auto;display:inline-flex;align-items:center;text-decoration:none;min-height:36px;padding:7px 11px;border:0;border-radius:20px;background:var(--paper);color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;line-height:1;white-space:nowrap;cursor:pointer; }
   #homeBtn:hover { background:var(--warm);color:#fff; }
   body.dark #homeBtn { background:#2a241c;color:#e8e0d2;border-color:#3a3228; }
   body.dark #homeBtn:hover { background:var(--warm);color:#fff; }
@@ -273,7 +288,7 @@
 <div id="map"></div>
 <div id="vignette"></div>
 <div id="topbar">
-  <button id="homeBtn" type="button" aria-label="返回主站首页" title="返回主站首页">🏠 返回小屋</button>
+  <a id="homeBtn" href="/" aria-label="返回主站首页" title="返回主站首页">🏠 返回小屋</a>
   <span id="logo" title="点我 5 次有惊喜">⛰ 行舟记</span>
   <button id="listBtn">📋 足迹本</button>
   <button id="albumBtn">📷 相册</button>
@@ -401,7 +416,7 @@
 const map = L.map('map', { zoomControl: true }).setView([27.5, 111.5], 6);
 map.doubleClickZoom.disable();
 L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', { subdomains: '1234', attribution: '© 高德地图', maxZoom: 19, maxNativeZoom: 18 }).addTo(map);
-document.getElementById('homeBtn').addEventListener('click', () => { window.location.href = '/'; });
+// 返回主站用真实链接（见 <head> 的 speculation rules），不再用脚本跳转。
 const homePhotoLayer = L.markerClusterGroup({
   maxClusterRadius: 60,
   iconCreateFunction(cluster) {

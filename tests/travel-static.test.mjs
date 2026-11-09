@@ -9,8 +9,8 @@ import { createApplication, travelContentSecurityPolicy } from '../dist-supabase
 const text=path=>readFile(new URL('../'+path,import.meta.url),'utf8');
 
 test('travel footprint subsite has its own explicitly scoped PWA',async()=>{
-  const [page,worker,manifest,home,features]=await Promise.all([
-    text('public/travel/index.html'),text('public/travel/sw.js'),text('public/travel/manifest.json'),text('app/home.html'),text('public/features.js'),
+  const [page,worker,manifest,home,features,globalCss]=await Promise.all([
+    text('public/travel/index.html'),text('public/travel/sw.js'),text('public/travel/manifest.json'),text('app/home.html'),text('public/features.js'),text('public/style.css'),
   ]);
   assert.match(page,/serviceWorker\.register\('\.\/sw\.js', \{ scope: '\.\/' \}\)/);
   assert.match(page,/href="\.\/vendor\/leaflet\.css"/);assert.match(page,/src="\.\/vendor\/leaflet\.js"/);assert.doesNotMatch(page,/jsdelivr/);
@@ -24,12 +24,20 @@ test('travel footprint subsite has its own explicitly scoped PWA',async()=>{
   assert.match(page,/photo\.latitude/);assert.match(page,/photo\.longitude/);assert.match(page,/wgs2gcj\(group\.lat, group\.lng\)/);
   assert.match(page,/\/api\/photos\/' \+ encodeURIComponent\(photo\.id\)/);assert.match(page,/function groupHomePhotos/);
   assert.match(page,/homePhotosButton\.addEventListener\('click'/);assert.match(page,/loadHomePhotoMarkers\(\);/);
-  assert.match(page,/<button id="homeBtn"[^>]*>🏠 返回小屋<\/button>/);
+  assert.match(page,/<a id="homeBtn" href="\/"[^>]*>🏠 返回小屋<\/a>/);
+  // moderate 依赖真实链接：原来的 <button> + location.href 无法被悬停意图触发。
+  assert.match(page,/<script type="speculationrules">[\s\S]*"prerender"[\s\S]*"urls": \["\/"\][\s\S]*"eagerness": "moderate"[\s\S]*<\/script>/);
+  assert.doesNotMatch(page,/location\.href = '\/'/);
+  // 跨文档过渡要求两端文档都 opt-in：副站是内联 <style>，主站是 style.css。
+  assert.match(page,/@view-transition\{navigation:auto\}/);
+  assert.match(globalCss,/@view-transition\{navigation:auto\}/);
+  assert.match(globalCss,/prefers-reduced-motion:reduce\)\{::view-transition-group\(\*\)/);
   assert.match(page,/#topbar > \* \{ flex:0 0 auto; \}/);
   assert.match(page,/@media \(max-width:768px\) \{[\s\S]*#topbar \{[\s\S]*overflow-x:auto;[\s\S]*white-space:nowrap;[\s\S]*touch-action:pan-x/);
   assert.match(page,/#topbar \{[^}]*-ms-overflow-style: none; scrollbar-width: none;/);
   assert.match(page,/#topbar::\-webkit-scrollbar \{ display:none; \}/);
-  assert.match(page,/getElementById\('homeBtn'\)\.addEventListener\('click', \(\) => \{ window\.location\.href = '\/'; \}\)/);
+  // <button> 时 #topbar button 会覆盖边框/内边距；改 <a> 后必须显式写回，外观才等价。
+  assert.match(page,/#homeBtn \{[^}]*text-decoration:none[^}]*padding:7px 11px;[^}]*border:0/);
   assert.match(page,/<input type="file" id="fpPhoto" accept="image\/\*" multiple>/);
   assert.match(page,/function footprintPhotos\(fp\) \{[\s\S]*Array\.isArray\(fp\.photos\)[\s\S]*fp\.photo/);
   assert.match(page,/files\.map\(async file => \{[\s\S]*downscale\(dataUrl, 800, 0\.8\)/);
@@ -50,7 +58,7 @@ test('travel footprint subsite has its own explicitly scoped PWA',async()=>{
   assert.match(postgresMigration,/CREATE TABLE public\.travel_footprints/);
   assert.match(r2Store,/putTravelPhoto/);assert.match(r2Store,/getTravelPhoto/);assert.match(r2Store,/deleteTravelPhoto/);
   assert.match(worker,/CACHE_PREFIX = 'couple-home-travel-'/);
-  assert.match(worker,/CACHE = CACHE_PREFIX \+ 'v4'/);
+  assert.match(worker,/CACHE = CACHE_PREFIX \+ 'v5'/);
   assert.match(worker,/url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(worker,/k\.startsWith\(CACHE_PREFIX\) && k !== CACHE/);
   assert.match(worker,/\.\/vendor\/leaflet\.js/);assert.match(worker,/\.\/vendor\/leaflet\.css/);assert.match(worker,/\.\/vendor\/leaflet\.markercluster\.js/);

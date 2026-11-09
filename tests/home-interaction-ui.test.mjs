@@ -130,3 +130,15 @@ test('service worker cache version and resource URLs are refreshed', () => {
   assert.match(sw, /app\.js\?v=/);
   assert.match(sw, /features\.js\?v=/);
 });
+
+test('startup scripts stay deferred and do not preload over the blocking stylesheet', () => {
+  // 3G 限速 A/B 实测：preload app.js 把它的 startTime 提前 30~90ms，但会与 83KB 的
+  // 阻塞 style.css 抢带宽，FCP 反而慢 80~130ms。因此保持「一个阻塞 CSS + 全 defer 脚本」。
+  assert.doesNotMatch(html, /rel="preload"/, '不要凭直觉加 preload，先用 Network 瀑布图量 FCP');
+  const scripts = [...html.matchAll(/<script src="([^"]+)"([^>]*)>/g)];
+  assert.ok(scripts.length >= 5, '主站脚本应保持 defer 加载，不要改成同步 script');
+  for (const [, src, attrs] of scripts) {
+    assert.match(attrs, /\bdefer\b/, `${src} 必须保持 defer`);
+    assert.doesNotMatch(attrs, /\basync\b/, `${src} 不应改成 async，会打乱执行顺序`);
+  }
+});

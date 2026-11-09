@@ -1,6 +1,6 @@
-const CACHE_NAME='couple-home-v18';
+const CACHE_NAME='couple-home-v19';
 const CACHE_PREFIXES=['couple-home-','couple-home-static-'];
-const STATIC_ASSETS=['/','/manifest.json','/style.css?v=20261109-mobile-album','/room-helpers.js?v=20261027-album-ai','/exifr.js?v=7.1.3','/app.js?v=20261109-mobile-album','/album.js?v=20261109-compress','/features.js?v=20261109-truth-todos','/entry.js','/favicon.svg','/icon-192.svg','/icon-512.svg','/icon-192.png','/icon-512.png'];
+const STATIC_ASSETS=['/','/manifest.json','/style.css?v=20261110-view-transition','/room-helpers.js?v=20261027-album-ai','/exifr.js?v=7.1.3','/app.js?v=20261109-mobile-album','/album.js?v=20261109-compress','/features.js?v=20261109-truth-todos','/entry.js','/favicon.svg','/icon-192.svg','/icon-512.svg','/icon-192.png','/icon-512.png'];
 
 self.addEventListener('install',event=>{event.waitUntil((async()=>{
   const cache=await caches.open(CACHE_NAME);

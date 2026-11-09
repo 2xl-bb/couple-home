@@ -1,6 +1,6 @@
 // 足迹地图 · Service Worker（让应用可以离线使用、可安装）
 const CACHE_PREFIX = 'couple-home-travel-';
-const CACHE = CACHE_PREFIX + 'v4';
+const CACHE = CACHE_PREFIX + 'v5';
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './vendor/leaflet.js', './vendor/leaflet.css', './vendor/leaflet.markercluster.js', './vendor/MarkerCluster.css', './vendor/MarkerCluster.Default.css'];
 
 // 安装：预缓存核心文件

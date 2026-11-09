@@ -6,7 +6,9 @@
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="Couple Home">
 <title>我们的小日子 · 两个人的纪念册</title>
 <link rel="manifest" href="/manifest.json"><link rel="apple-touch-icon" href="/icon-192.png">
-<link rel="stylesheet" href="/style.css?v=20261109-mobile-album">
+<!-- 不要在这里加 preload：3G 限速实测，preload app.js 虽把它的 startTime 提前 30~90ms，
+     却会和同样 83KB 的阻塞 style.css 抢带宽，FCP 反而慢 80~130ms。脚本统一保持 defer。 -->
+<link rel="stylesheet" href="/style.css?v=20261110-view-transition">
 </head>
 <body class="home-locked auth-checking">
 <div id="auth-loading" role="status" aria-live="polite"><span class="auth-spinner" aria-hidden="true"></span><strong>正在为你打开小屋</strong><span id="auth-loading-note">正在确认登录状态……</span><button type="button" id="auth-loading-retry" class="outline" hidden>重新检查连接 ↻</button></div>

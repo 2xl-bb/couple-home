@@ -87,6 +87,9 @@ test('PostgreSQL applies immutable incremental photo caption migrations',async()
   assert.ok(statements.some(item=>item.sql.includes('ADD COLUMN longitude NUMERIC')));
   assert.ok(statements.some(item=>item.sql.includes('ADD COLUMN location_name VARCHAR(160)')));
   assert.ok(statements.some(item=>item.sql.startsWith('INSERT INTO couple_home_schema_migrations')&&item.values?.[0]==='0004_photo_gps.sql'));
+  assert.ok(statements.some(item=>item.sql.includes('ADD COLUMN todo_created_at BIGINT')));
+  assert.ok(statements.some(item=>item.sql.includes('ADD COLUMN todo_completed_at BIGINT')));
+  assert.ok(statements.some(item=>item.sql.startsWith('INSERT INTO couple_home_schema_migrations')&&item.values?.[0]==='0009_truth_dare_todos.sql'));
 });
 
 test('a failed room compare-and-swap rolls back its event claim', async () => {

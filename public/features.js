@@ -56,7 +56,13 @@ const truthDareQuestions={
  dare:['为对方选一首歌，哼出最喜欢的一句。','模仿对方的一个招牌动作，让对方猜一猜。','给对方写一句今天专属的夸奖。','一起摆一个有趣的合照姿势。','如果双方都愿意，给对方一个轻轻的吻；也可以击掌或换题。','闭上眼睛，让对方选一口喜欢的零食给你；不方便时可以换题。']
 };
 const truthDareDiceFaces=['⚀','⚁','⚂','⚃','⚄','⚅'];
-let truthDarePollRunning=false,truthDareActionRunning=false,truthDareCurrent=null,truthDareQuestionKey='',truthDareQuestionDraft='',truthDareSession=0,truthDareRollAnimation=null,truthDareRollDelay=null,truthDareChatSignature='',truthDareChatPending=[],truthDareEventSource=null,truthDareStreamWasOpen=false;
+let truthDarePollRunning=false,truthDareActionRunning=false,truthDareCurrent=null,truthDareQuestionKey='',truthDareQuestionDraft='',truthDareSession=0,truthDareRollAnimation=null,truthDareRollDelay=null,truthDareChatSignature='',truthDareChatPending=[],truthDareEventSource=null,truthDareStreamWasOpen=false,truthDareTodos=[];
+function truthDareNames(){const configured=window.LittleDaysEntry?.identityNames||[],saved=state.names||[];return [saved[0]&&saved[0]!=='你'?saved[0]:configured[0]&&configured[0]!=='成员一'?configured[0]:'你',saved[1]&&saved[1]!=='我'?saved[1]:configured[1]&&configured[1]!=='成员二'?configured[1]:'TA']}
+function truthDareTodoForGame(gameId){return truthDareTodos.find(todo=>todo.gameId===gameId)}
+function truthDareUpdateTodoShortcut(){
+ const button=$('#truth-dare-todos-open');
+ if(button)button.textContent=`大冒险待办${truthDareTodos.some(todo=>!todo.completedAt)?` · ${truthDareTodos.filter(todo=>!todo.completedAt).length}`:''}`;
+}
 function truthDareDrawQuestion(type){
  const pool=truthDareQuestions[type],choices=pool.filter(question=>question!==truthDareQuestionDraft);
  truthDareQuestionDraft=choices[Math.floor(Math.random()*choices.length)];
@@ -75,7 +81,7 @@ function truthDareRenderChat(game){
   truthDareChatSignature=signature;
   list.replaceChildren(...messages.map(message=>{
    const bubble=document.createElement('article');bubble.className=`truth-dare-chat-message ${message.senderRole===game.role?'is-mine':'is-theirs'}`;
-   const sender=document.createElement('strong');sender.textContent=message.senderRole===game.role?'我':'TA';
+   const sender=document.createElement('strong');sender.textContent=truthDareNames()[message.senderRole==='p1'?0:1];
    const text=document.createElement('p');text.textContent=message.text;
    const time=document.createElement('time');time.textContent=Number.isSafeInteger(message.timestamp)?new Date(message.timestamp).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}):'';
    bubble.append(sender,text,time);
@@ -133,10 +139,11 @@ function truthDareShowGame(game){
  $('#truth-dare-answer-submit').hidden=true;
  $('#truth-dare-answer-result').hidden=true;
  $('#truth-dare-answer-label').hidden=true;
+ $('#truth-dare-save-todo').hidden=true;
  truthDareRenderChat(game);
  if(status==='waiting_p1_roll'||status==='waiting_p2_roll'){
   const expected=status==='waiting_p1_roll'?'p1':'p2';
-  if(first!==null&&second!==null&&first===second)$('#truth-dare-status').textContent=`平局（${first} 比 ${second}），再由成员一掷一次。`;
+  if(first!==null&&second!==null&&first===second)$('#truth-dare-status').textContent=`平局（${first} 比 ${second}），再由 ${truthDareNames()[0]} 掷一次。`;
   else $('#truth-dare-status').textContent=game.role===expected?'轮到你掷骰子。':'等待 TA 掷骰子……';
   if(game.role===expected){$('#truth-dare-roll').hidden=false;$('#truth-dare-roll').disabled=false;$('#truth-dare-roll').textContent='掷骰子'}
   else{waiting.hidden=false;waiting.textContent='等待 TA 掷骰子……'}
@@ -165,6 +172,7 @@ function truthDareShowGame(game){
   $('#truth-dare-custom-send').hidden=true;
   $('#truth-dare-submit-system').hidden=true;
   $('#truth-dare-note').hidden=true;
+  if(game.choiceType==='dare'&&game.questionText)truthDareShowTodoAction(game);
   if(game.isLoser){
    $('#truth-dare-answer-section').hidden=false;
    $('#truth-dare-answer-label').hidden=false;
@@ -187,7 +195,52 @@ function truthDareShowGame(game){
   $('#truth-dare-answer-label').hidden=true;
   $('#truth-dare-answer-result').hidden=false;
   $('#truth-dare-answer-text').textContent=game.answerText||'对方没有留下文字回答。';
+  if(game.choiceType==='dare'&&game.questionText)truthDareShowTodoAction(game);
  }
+}
+function truthDareShowTodoAction(game){
+ const button=$('#truth-dare-save-todo'),todo=truthDareTodoForGame(game.id);
+ button.hidden=false;
+ button.disabled=!!todo;
+ button.textContent=todo?'已存入待办 ✓':'存入待办 · 稍后完成';
+}
+async function truthDareLoadTodos(session=truthDareSession){
+ const response=await api('/api/games/truth-dare/todos');
+ if(session!==truthDareSession)return;
+ truthDareTodos=response.todos;
+ truthDareUpdateTodoShortcut();
+ if($('#modal').open&&$('#truth-dare-board')&&truthDareCurrent)truthDareShowGame(truthDareCurrent);
+}
+function truthDareRenderTodos(){
+ const list=$('#truth-dare-todo-list');
+ if(!list)return;
+ list.replaceChildren();
+ const open=truthDareTodos.filter(todo=>!todo.completedAt),completed=truthDareTodos.filter(todo=>todo.completedAt);
+ if(!truthDareTodos.length){const empty=document.createElement('p');empty.className='form-help';empty.textContent='还没有待完成的大冒险。愿每一次尝试，都刚刚好 ♡';list.append(empty);return}
+ for(const todo of [...open,...completed]){
+  const row=document.createElement('article');row.className=`truth-dare-todo ${todo.completedAt?'is-complete':''}`;
+  const text=document.createElement('p');text.textContent=todo.text;row.append(text);
+  if(todo.completedAt){const done=document.createElement('span');done.className='truth-dare-todo-done';done.textContent='已完成';row.append(done)}
+  else{const button=document.createElement('button');button.type='button';button.className='outline';button.textContent='已完成';button.onclick=async()=>{button.disabled=true;try{const response=await api(`/api/games/truth-dare/todos/${encodeURIComponent(todo.id)}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({completed:true})});truthDareTodos=truthDareTodos.map(item=>item.id===todo.id?response.todo:item);truthDareUpdateTodoShortcut();truthDareRenderTodos()}catch(error){button.disabled=false;toast(error.message)}};row.append(button)}
+  list.append(row);
+ }
+}
+function openTruthDareTodos(){
+ if(!needReady())return;
+ modal('大冒险待办清单','<p id="truth-dare-todo-loading" class="form-help" role="status">正在加载待办……</p><div id="truth-dare-todo-list" class="truth-dare-todo-list"></div>');
+ truthDareRenderTodos();
+ truthDareLoadTodos().then(truthDareRenderTodos).catch(error=>{const note=$('#truth-dare-todo-loading');if(note)note.textContent=error.message});
+}
+async function truthDareSaveTodo(){
+ const game=truthDareCurrent,button=$('#truth-dare-save-todo');
+ if(!game||button.disabled)return;
+ button.disabled=true;
+ try{
+  const response=await api('/api/games/truth-dare/todos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gameId:game.id})});
+  const index=truthDareTodos.findIndex(todo=>todo.id===response.todo.id);
+  if(index<0)truthDareTodos.unshift(response.todo);else truthDareTodos[index]=response.todo;
+  truthDareUpdateTodoShortcut();truthDareShowGame(truthDareCurrent);toast('这项大冒险已收进待办清单 ♡');
+ }catch(error){button.disabled=false;toast(error.message)}
 }
 async function truthDareRefresh(session=truthDareSession){
  if(session!==truthDareSession||truthDarePollRunning||!$('#modal').open||!$('#truth-dare-board'))return;
@@ -209,10 +262,12 @@ function openTruthDare(){
  const session=++truthDareSession;
  truthDareQuestionKey='';truthDareQuestionDraft='';truthDareCurrent=null;
  truthDareChatSignature='';truthDareChatPending=[];
- modal('🎲 异地双人真心话大冒险','<div class="truth-dare"><p class="truth-dare-caption">你们各自在自己的设备掷骰子，结果会自动同步。</p><button type="button" class="primary" id="truth-dare-start">发起新对局 ♡</button><section id="truth-dare-board" hidden><div class="truth-dare-duel"><article class="truth-dare-player"><span>成员一</span><strong id="truth-dare-die-1" class="truth-dare-die" aria-label="等待掷骰">⚄</strong></article><span class="truth-dare-versus">VS</span><article class="truth-dare-player"><span>成员二</span><strong id="truth-dare-die-2" class="truth-dare-die" aria-label="等待掷骰">⚄</strong></article></div><p id="truth-dare-status" class="truth-dare-status" role="status" aria-live="polite">正在检查对局……</p><p id="truth-dare-waiting" class="truth-dare-waiting" hidden></p><button type="button" class="primary" id="truth-dare-roll" hidden>掷骰子</button><div id="truth-dare-types" class="truth-dare-actions" hidden><button type="button" class="primary" id="truth-dare-truth">💬 真心话</button><button type="button" class="outline" id="truth-dare-dare">🔥 大冒险</button></div><section id="truth-dare-challenge" class="truth-dare-challenge" hidden><article id="truth-dare-result" class="truth-dare-result"><span id="truth-dare-kind"></span><p id="truth-dare-question"></p></article><button type="button" class="text-button" id="truth-dare-change">换一题 ↻</button><label id="truth-dare-custom-label" class="truth-dare-custom-label" for="truth-dare-custom">或者亲自写一道题 / 惩罚：</label><textarea id="truth-dare-custom" maxlength="300" placeholder="输入想问的问题，或想指定的惩罚……"></textarea><p id="truth-dare-custom-note" class="truth-dare-note" role="status"></p><div class="truth-dare-actions"><button type="button" class="primary" id="truth-dare-submit-system">提交这道题</button><button type="button" class="outline" id="truth-dare-custom-send">提交自定义题目</button></div><section id="truth-dare-answer-section" class="truth-dare-answer" hidden><label id="truth-dare-answer-label" for="truth-dare-answer-input">写下你的回答：</label><textarea id="truth-dare-answer-input" maxlength="1000" placeholder="认真回答，也可以写下此刻的心情……" hidden></textarea><button type="button" class="primary" id="truth-dare-answer-submit" hidden>提交答案</button><article id="truth-dare-answer-result" hidden><strong>输家的回答</strong><p id="truth-dare-answer-text"></p></article></section></section><p id="truth-dare-note" class="truth-dare-note">任何一方都可以跳过或换题，不必勉强。开心最重要 ♡</p><section class="truth-dare-chat" aria-label="本局聊天"><h3>和 TA 聊聊</h3><div id="truth-dare-chat-list" class="truth-dare-chat-list" role="log" aria-live="polite" aria-relevant="additions"></div><form id="truth-dare-chat-form" class="truth-dare-chat-form"><textarea id="truth-dare-chat-input" maxlength="500" rows="1" placeholder="说点什么吧……" aria-label="聊天消息"></textarea><button id="truth-dare-chat-send" type="submit" class="primary">发送</button></form></section></section></div>');
+ const names=truthDareNames();
+ modal('🎲 异地双人真心话大冒险',`<div class="truth-dare"><p class="truth-dare-caption">你们各自在自己的设备掷骰子，结果会自动同步。</p><button type="button" class="primary" id="truth-dare-start">发起新对局 ♡</button><section id="truth-dare-board" hidden><div class="truth-dare-duel"><article class="truth-dare-player"><span>${esc(names[0])}</span><strong id="truth-dare-die-1" class="truth-dare-die" aria-label="等待掷骰">⚄</strong></article><span class="truth-dare-versus">VS</span><article class="truth-dare-player"><span>${esc(names[1])}</span><strong id="truth-dare-die-2" class="truth-dare-die" aria-label="等待掷骰">⚄</strong></article></div><p id="truth-dare-status" class="truth-dare-status" role="status" aria-live="polite">正在检查对局……</p><p id="truth-dare-waiting" class="truth-dare-waiting" hidden></p><button type="button" class="primary" id="truth-dare-roll" hidden>掷骰子</button><div id="truth-dare-types" class="truth-dare-actions" hidden><button type="button" class="primary" id="truth-dare-truth">💬 真心话</button><button type="button" class="outline" id="truth-dare-dare">🔥 大冒险</button></div><section id="truth-dare-challenge" class="truth-dare-challenge" hidden><article id="truth-dare-result" class="truth-dare-result"><span id="truth-dare-kind"></span><p id="truth-dare-question"></p></article><button type="button" class="outline" id="truth-dare-save-todo" hidden>存入待办 · 稍后完成</button><button type="button" class="text-button" id="truth-dare-change">换一题 ↻</button><label id="truth-dare-custom-label" class="truth-dare-custom-label" for="truth-dare-custom">或者亲自写一道题 / 惩罚：</label><textarea id="truth-dare-custom" maxlength="300" placeholder="输入想问的问题，或想指定的惩罚……"></textarea><p id="truth-dare-custom-note" class="truth-dare-note" role="status"></p><div class="truth-dare-actions"><button type="button" class="primary" id="truth-dare-submit-system">提交这道题</button><button type="button" class="outline" id="truth-dare-custom-send">提交自定义题目</button></div><section id="truth-dare-answer-section" class="truth-dare-answer" hidden><label id="truth-dare-answer-label" for="truth-dare-answer-input">写下你的回答：</label><textarea id="truth-dare-answer-input" maxlength="1000" placeholder="认真回答，也可以写下此刻的心情……" hidden></textarea><button type="button" class="primary" id="truth-dare-answer-submit" hidden>提交答案</button><article id="truth-dare-answer-result" hidden><strong>输家的回答</strong><p id="truth-dare-answer-text"></p></article></section></section><p id="truth-dare-note" class="truth-dare-note">任何一方都可以跳过或换题，不必勉强。开心最重要 ♡</p><section class="truth-dare-chat" aria-label="本局聊天"><h3>和 TA 聊聊</h3><div id="truth-dare-chat-list" class="truth-dare-chat-list" role="log" aria-live="polite" aria-relevant="additions"></div><form id="truth-dare-chat-form" class="truth-dare-chat-form"><textarea id="truth-dare-chat-input" maxlength="500" rows="1" placeholder="说点什么吧……" aria-label="聊天消息"></textarea><button id="truth-dare-chat-send" type="submit" class="primary">发送</button></form></section></section></div>`);
  const stopStreaming=()=>{if(session!==truthDareSession)return;if(truthDareEventSource){truthDareEventSource.close();truthDareEventSource=null}truthDareStreamWasOpen=false;if(truthDareRollAnimation){clearInterval(truthDareRollAnimation);truthDareRollAnimation=null}if(truthDareRollDelay){clearTimeout(truthDareRollDelay);truthDareRollDelay=null}truthDareActionRunning=false;truthDareSession++};
  $('#modal').addEventListener('close',stopStreaming,{once:true});
  $('#truth-dare-start').onclick=()=>truthDareAction('/api/games/truth-dare',{});
+ $('#truth-dare-save-todo').onclick=truthDareSaveTodo;
  $('#truth-dare-roll').onclick=()=>{
   if(!truthDareCurrent)return;
   const gameId=truthDareCurrent.id,rollButton=$('#truth-dare-roll'),die=truthDareCurrent.role==='p1'?$('#truth-dare-die-1'):$('#truth-dare-die-2');
@@ -242,6 +297,8 @@ function openTruthDare(){
   const message={id:crypto.randomUUID(),gameId:truthDareCurrent.id,senderRole:truthDareCurrent.role,text,timestamp:Date.now(),delivery:'sending',sending:false};
   truthDareChatPending.push(message);input.value='';truthDareRenderChat(truthDareCurrent);truthDareSendChat(message);
  };
+ for(const selector of ['#truth-dare-chat-input','#truth-dare-custom','#truth-dare-answer-input'])$(selector).addEventListener('focus',event=>{const target=event.currentTarget;setTimeout(()=>target.scrollIntoView({block:'nearest',behavior:'smooth'}),120)});
+ void truthDareLoadTodos(session).catch(error=>toast(error.message));
  truthDareEventSource=new EventSource('/api/games/truth-dare/stream');
  truthDareEventSource.onmessage=event=>{if(session!==truthDareSession||!$('#modal').open||!$('#truth-dare-board'))return;try{const update=JSON.parse(event.data);truthDareShowGame(update.game)}catch{void truthDareRefresh(session)}};
  truthDareEventSource.onopen=()=>{if(session!==truthDareSession)return;if(truthDareStreamWasOpen)void truthDareRefresh(session);truthDareStreamWasOpen=true};
@@ -251,6 +308,7 @@ function openTruthDare(){
 }
 window.LittleDaysTruthDare={open:openTruthDare,questions:truthDareQuestions};
 document.addEventListener('click',event=>{const trigger=event.target instanceof Element?event.target.closest('[data-open-truth-dare]'):null;if(trigger){event.preventDefault();openTruthDare()}});
+$('#truth-dare-todos-open').addEventListener('click',openTruthDareTodos);
 
 // Hash routes keep each room on its own page, including on static GitHub Pages.
 (function setupRoomPages(){

@@ -55,6 +55,8 @@ export const truthDareGames = sqliteTable('truth_dare_games', {
   questionText: text('question_text'),
   answerText: text('answer_text'),
   chatMessages: text('chat_messages').notNull().default('[]'),
+  todoCreatedAt: integer('todo_created_at'),
+  todoCompletedAt: integer('todo_completed_at'),
   createdAt: integer('created_at').notNull(),
 }, table => [uniqueIndex('truth_dare_games_one_active_idx')
   .on(sql`(1)`).where(sql`${table.status} <> 'finished'`)]);

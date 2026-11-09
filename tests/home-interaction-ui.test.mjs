@@ -38,7 +38,7 @@ test('the game receives SSE updates and renders each role-specific stage', () =>
     '#truth-dare-custom-label','#truth-dare-custom-send','#truth-dare-submit-system','#truth-dare-note',
     '#truth-dare-answer-section','#truth-dare-answer-input','#truth-dare-answer-submit',
     '#truth-dare-answer-result','#truth-dare-answer-text','#truth-dare-answer-label',
-    '#truth-dare-chat-list','#truth-dare-chat-form','#truth-dare-chat-input','#truth-dare-chat-send'
+    '#truth-dare-chat-list','#truth-dare-chat-form','#truth-dare-chat-input','#truth-dare-chat-send','#truth-dare-save-todo'
   ];
   const nodes = Object.fromEntries(selectors.map(selector=>[selector,{
     textContent:'',value:'',hidden:false,disabled:false,attributes:{},children:[],scrollHeight:100,scrollTop:0,
@@ -47,7 +47,7 @@ test('the game receives SSE updates and renders each role-specific stage', () =>
     replaceChildren(...children){this.children=children}
   }]));
   const context=vm.createContext({
-    window:{},truthDareCurrent:null,truthDareQuestionKey:'',truthDareQuestionDraft:'',
+    window:{},truthDareCurrent:null,truthDareQuestionKey:'',truthDareQuestionDraft:'',state:{names:['阿晴','小宇']},
     $:selector=>nodes[selector],me:{slot:1},Math:{random:()=>.4,floor:Math.floor},
     document:{createElement:()=>({append(){},className:'',textContent:'',children:[],append(...children){this.children.push(...children)}})}
   });
@@ -91,10 +91,18 @@ test('the game receives SSE updates and renders each role-specific stage', () =>
   assert.equal(bubbles[0].className,'truth-dare-chat-message is-mine');
   assert.equal(bubbles[0].children[1].textContent,'我这边先掷！');
   assert.equal(bubbles[1].className,'truth-dare-chat-message is-theirs');
+  assert.equal(bubbles[0].children[0].textContent,'阿晴');
+  assert.equal(bubbles[1].children[0].textContent,'小宇');
   assert.equal(nodes['#truth-dare-chat-list'].scrollTop,100);
   assert.equal(nodes['#truth-dare-chat-form'].hidden,false);
   for(const endpoint of ['/api/games/truth-dare/active','/roll','/choice','/question','/answer','/chat'])assert.ok(features.includes(endpoint),endpoint);
   assert.match(features,/truthDareChatPending\.push\(message\)/);
+  render({...base,status:'finished',role:'p1',choiceType:'dare',questionText:'选一首歌',chatMessages:[]});
+  assert.equal(nodes['#truth-dare-save-todo'].hidden,false);
+  assert.equal(nodes['#truth-dare-save-todo'].textContent,'存入待办 · 稍后完成');
+  assert.match(features,/api\('\/api\/games\/truth-dare\/todos'/);
+  assert.match(features,/api\(`\/api\/games\/truth-dare\/todos\/\$\{encodeURIComponent\(todo\.id\)\}`/);
+  assert.match(features,/大冒险待办/);
   assert.match(features,/new EventSource\('\/api\/games\/truth-dare\/stream'\)/);
   assert.match(features,/truthDareEventSource\.onmessage=/);
   assert.match(features,/truthDareEventSource\.onopen=/);
@@ -102,9 +110,21 @@ test('the game receives SSE updates and renders each role-specific stage', () =>
   assert.doesNotMatch(features,/setInterval\(\(\)=>truthDareRefresh\(session\),3000\)/);
 });
 
+test('chat is bounded and nicknamed, with a home entry for shared adventure todos', () => {
+  assert.match(css,/\.truth-dare-chat-list\{[^}]*height:250px;max-height:250px;overflow-y:auto/);
+  assert.match(css,/\.truth-dare-chat-message\.is-mine\{align-self:flex-end/);
+  assert.match(css,/\.truth-dare-chat-message\.is-theirs\{align-self:flex-start/);
+  assert.match(css,/#modal:has\(\.truth-dare textarea:focus\)/);
+  assert.match(features,/function truthDareNames\(\)/);
+  assert.match(features,/scrollIntoView\(\{block:'nearest',behavior:'smooth'\}\)/);
+  assert.match(html,/id="truth-dare-todos-open"/);
+  assert.match(features,/function openTruthDareTodos\(\)/);
+  assert.match(features,/completed:true/);
+});
+
 test('service worker cache version and resource URLs are refreshed', () => {
-  assert.match(sw, /couple-home-v15/);
-  assert.match(sw, /style\.css\?v=20261108-truth-chat/);
+  assert.match(sw, /couple-home-v16/);
+  assert.match(sw, /style\.css\?v=20261109-truth-todos/);
   assert.match(sw, /app\.js\?v=20261108-photo-location/);
-  assert.match(sw, /features\.js\?v=20261108-truth-sse/);
+  assert.match(sw, /features\.js\?v=20261109-truth-todos/);
 });

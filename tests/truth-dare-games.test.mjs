@@ -117,6 +117,7 @@ test('authenticated partners can play a shared truth-or-dare game through every 
     assert.equal(finalGame.chatMessages.length,4);
   }
   assert.equal((await call(`${root}/${first.id}/answer`,{method:'POST',cookie:p1,body:{answerText:'重复提交'}})).status,409);
+  assert.equal((await call(`${root}/todos`,{method:'POST',cookie:p1,body:{gameId:first.id}})).status,409);
 
   const tieCreated=await call(root,{method:'POST',cookie:p2,body:{}});
   assert.equal(tieCreated.status,201,await tieCreated.clone().text());
@@ -138,4 +139,21 @@ test('authenticated partners can play a shared truth-or-dare game through every 
   assert.equal((await call(`${root}/${tie.id}/question`,{method:'POST',cookie:p2,body:{questionText:'   '}})).status,400);
   const tooLong=await call(`${root}/${tie.id}/question`,{method:'POST',cookie:p2,body:{questionText:'题'.repeat(301)}});
   assert.equal(tooLong.status,400);
+  const dareQuestion=await call(`${root}/${tie.id}/question`,{method:'POST',cookie:p2,body:{questionText:'为对方选一首歌，哼出最喜欢的一句。'}});
+  assert.equal((await dareQuestion.json()).game.status,'waiting_loser_answer');
+  const savedTodo=await call(`${root}/todos`,{method:'POST',cookie:p2,body:{gameId:tie.id}});
+  assert.equal(savedTodo.status,201,await savedTodo.clone().text());
+  const todo=(await savedTodo.json()).todo;
+  assert.equal(todo.text,'为对方选一首歌，哼出最喜欢的一句。');
+  assert.equal(todo.completedAt,null);
+  const duplicateTodo=await call(`${root}/todos`,{method:'POST',cookie:p1,body:{gameId:tie.id}});
+  assert.equal((await duplicateTodo.json()).todo.id,todo.id);
+  const todoList=(await (await call(`${root}/todos`,{cookie:p1})).json()).todos;
+  assert.equal(todoList.length,1);
+  assert.equal(todoList[0].gameId,tie.id);
+  assert.equal((await call(`${root}/todos/${todo.id}`,{method:'PATCH',cookie:p1,body:{completed:true}})).status,200);
+  const completed=(await (await call(`${root}/todos`,{cookie:p2})).json()).todos[0];
+  assert.ok(Number.isSafeInteger(completed.completedAt));
+  assert.equal((await call(`${root}/todos/${todo.id}`,{method:'PATCH',cookie:p2,body:{completed:true}})).status,200);
+  assert.equal((await call(`${root}/todos/${todo.id}`,{method:'PATCH',body:{completed:true}})).status,401);
 });

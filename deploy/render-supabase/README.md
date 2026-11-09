@@ -25,7 +25,7 @@
 
 `AllowedOrigins` 必须与 `APP_ORIGIN` 完全一致，不带末尾斜线。浏览器通过预签名 URL 直接上传和播放视频；服务端生成的 CSP 会只放行当前 `R2_BUCKET_NAME` 与 `R2_ACCOUNT_ID` 对应的私有 R2 域名。
 
-数据库建表由应用首次启动执行。`schema.sql` 为初始迁移，部署后不要直接修改；后续升级由 `migrations/` 中带校验哈希的增量迁移按顺序自动执行。照片追加留言使用 `0002_photo_captions.sql`，行舟记云端同步使用 `0005_travel_footprints.sql`，真心话大冒险回答与聊天分别使用 `0007_truth_dare_answers.sql`、`0008_truth_dare_chat.sql`，原 `photos.caption` 保留为不可覆盖的原配文。数据库表明确拒绝 Supabase Data API 的 `anon` 和 `authenticated` 角色访问。
+数据库建表由应用首次启动执行。`schema.sql` 为初始迁移，部署后不要直接修改；后续升级由 `migrations/` 中带校验哈希的增量迁移按顺序自动执行。照片追加留言使用 `0002_photo_captions.sql`，行舟记云端同步使用 `0005_travel_footprints.sql`，真心话大冒险回答、聊天和待办分别使用 `0007_truth_dare_answers.sql`、`0008_truth_dare_chat.sql`、`0009_truth_dare_todos.sql`，原 `photos.caption` 保留为不可覆盖的原配文。数据库表明确拒绝 Supabase Data API 的 `anon` 和 `authenticated` 角色访问。
 
 ## Render 设置
 

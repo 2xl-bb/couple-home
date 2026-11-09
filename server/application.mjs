@@ -19,6 +19,8 @@ import * as travelFootprintPhoto from '../app/api/travel/footprints/[id]/photos/
 import * as truthDareGames from '../app/api/games/truth-dare/route.ts';
 import * as truthDareActive from '../app/api/games/truth-dare/active/route.ts';
 import * as truthDareStream from '../app/api/games/truth-dare/stream/route.ts';
+import * as truthDareTodos from '../app/api/games/truth-dare/todos/route.ts';
+import * as truthDareTodo from '../app/api/games/truth-dare/todos/[id]/route.ts';
 import * as truthDareRoll from '../app/api/games/truth-dare/[id]/roll/route.ts';
 import * as truthDareChoice from '../app/api/games/truth-dare/[id]/choice/route.ts';
 import * as truthDareQuestion from '../app/api/games/truth-dare/[id]/question/route.ts';
@@ -36,6 +38,7 @@ const routes = new Map([['/api/home', home], ['/api/auth', auth], ['/api/passwor
   ['/api/recovery', recovery], ['/api/backup', backup], ['/api/restore', restore], ['/api/photos', photos], ['/api/album-ai', albumAIRoutes], ['/api/album-search', albumSearch],
   ['/api/travel/footprints', travelFootprints], ['/api/games/truth-dare', truthDareGames], ['/api/games/truth-dare/active', truthDareActive]]);
 routes.set('/api/games/truth-dare/stream', truthDareStream);
+routes.set('/api/games/truth-dare/todos', truthDareTodos);
 const staticFiles = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/pet-view.js', ['pet-view.js', 'text/javascript; charset=utf-8']], ['/features.js', ['features.js', 'text/javascript; charset=utf-8']], ['/room-helpers.js', ['room-helpers.js', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']], ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
@@ -154,13 +157,14 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
       const match = captionMatch || dateMatch || locationMatch || /^\/api\/photos\/([a-zA-Z0-9_-]{8,100})$/.exec(url.pathname);
       const travelPhotoMatch = /^\/api\/travel\/footprints\/([a-zA-Z0-9_-]{1,100})\/photos\/([a-f0-9-]{36})$/.exec(url.pathname);
       const travelFootprintMatch = /^\/api\/travel\/footprints\/([a-zA-Z0-9_-]{1,100})$/.exec(url.pathname);
+      const truthDareTodoMatch = /^\/api\/games\/truth-dare\/todos\/([a-f0-9-]{36})$/i.exec(url.pathname);
       const truthDareMatch = /^\/api\/games\/truth-dare\/([a-f0-9-]{36})\/(roll|choice|question|answer|chat)$/i.exec(url.pathname);
       const truthDareRoute = truthDareMatch ? {roll:truthDareRoll,choice:truthDareChoice,question:truthDareQuestion,answer:truthDareAnswer,chat:truthDareChat}[truthDareMatch[2]] : null;
-      const route = routes.get(url.pathname) || (truthDareRoute ? truthDareRoute : travelPhotoMatch ? travelFootprintPhoto : travelFootprintMatch ? travelFootprint : captionMatch ? photoCaption : dateMatch ? photoDate : locationMatch ? photoLocation : match ? photo : null);
+      const route = routes.get(url.pathname) || (truthDareTodoMatch ? truthDareTodo : truthDareRoute ? truthDareRoute : travelPhotoMatch ? travelFootprintPhoto : travelFootprintMatch ? travelFootprint : captionMatch ? photoCaption : dateMatch ? photoDate : locationMatch ? photoLocation : match ? photo : null);
       if (route) {
         const handler = route[request.method];
         if (typeof handler !== 'function') return new Response(null, { status: 405, headers: { Allow: Object.keys(route).filter(x => /^[A-Z]+$/.test(x)).join(', ') } });
-        const params = truthDareMatch ? { id: truthDareMatch[1] } : travelPhotoMatch ? { id: travelPhotoMatch[1], photoId: travelPhotoMatch[2] } :
+        const params = truthDareTodoMatch ? { id: truthDareTodoMatch[1] } : truthDareMatch ? { id: truthDareMatch[1] } : travelPhotoMatch ? { id: travelPhotoMatch[1], photoId: travelPhotoMatch[2] } :
           travelFootprintMatch ? { id: travelFootprintMatch[1] } : match ? { id: match[1] } : {};
         const response = await handler(request, { params: Promise.resolve(params) });
         if (response.ok && ['/api/home', '/api/restore'].includes(url.pathname)) return Response.json({ ...await response.json(), identityNames: await (entry.names ? entry.names() : identityNames(db)) }, { headers: response.headers });

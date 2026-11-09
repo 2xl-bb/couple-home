@@ -18,7 +18,7 @@
     "admin:node": "node --env-file-if-exists=.env dist-node/admin.mjs",
     "backup:node": "node --env-file-if-exists=.env dist-node/backup.mjs",
     "test:supabase": "pnpm run build:supabase && node --test tests/postgres-adapter.test.mjs tests/supabase-storage.test.mjs tests/r2-video.test.mjs tests/media-auth.test.mjs",
-    "test:node": "node --test tests/standalone.test.mjs tests/entry-ui.test.mjs tests/pet-album-ui.test.mjs tests/recovery-code.test.mjs tests/album-ai.test.mjs tests/album-search-ui.test.mjs"
+    "test:node": "node --test tests/standalone.test.mjs tests/entry-ui.test.mjs tests/pet-album-ui.test.mjs tests/recovery-code.test.mjs tests/album-ai.test.mjs tests/album-search-ui.test.mjs tests/backup-archive.test.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1160.0",

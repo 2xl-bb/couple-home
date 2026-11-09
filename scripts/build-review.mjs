@@ -16,7 +16,6 @@ html=html.replace('<header>','<aside style="padding:14px 24px;background:#8b6a57
 html=html.replace(/<script src="\/app\.js[^"]*" defer><\/script>/,`<script>${domain}\n${fixture}\n${app}</script>`);
 html=html.replace(/<script src="\/features\.js[^"]*" defer><\/script>/,`<script>${await readFile('public/features.js','utf8')}</script>`);
 html=html.replace(/<script src="\/room-helpers\.js[^"]*" defer><\/script>/,`<script>${await readFile('public/room-helpers.js','utf8')}</script>`);
-html=html.replace(/<script src="\/pet-view\.js[^"]*" defer><\/script>/,`<script>${await readFile('public/pet-view.js','utf8')}</script>`);
 html=html.replace(/<script src="\/album\.js[^"]*" defer><\/script>/,`<script>${await readFile('public/album.js','utf8')}</script>`);
 // A standalone preview has no external application assets or production endpoints.
 await writeFile(resolve(out,'couple-home-next-preview.html'),html);

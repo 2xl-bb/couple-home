@@ -40,7 +40,7 @@ const routes = new Map([['/api/home', home], ['/api/auth', auth], ['/api/passwor
 routes.set('/api/games/truth-dare/stream', truthDareStream);
 routes.set('/api/games/truth-dare/todos', truthDareTodos);
 const staticFiles = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
-  ['/pet-view.js', ['pet-view.js', 'text/javascript; charset=utf-8']], ['/features.js', ['features.js', 'text/javascript; charset=utf-8']], ['/room-helpers.js', ['room-helpers.js', 'text/javascript; charset=utf-8']],
+  ['/features.js', ['features.js', 'text/javascript; charset=utf-8']], ['/room-helpers.js', ['room-helpers.js', 'text/javascript; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']], ['/favicon.svg', ['favicon.svg', 'image/svg+xml']],
   ['/manifest.json', ['manifest.json', 'application/manifest+json; charset=utf-8']], ['/sw.js', ['sw.js', 'text/javascript; charset=utf-8']],
   ['/exifr.js', ['exifr.js', 'text/javascript; charset=utf-8']],

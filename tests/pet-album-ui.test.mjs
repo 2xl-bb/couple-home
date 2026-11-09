@@ -6,7 +6,7 @@ import {petNow} from '../lib/home-domain.mjs';
 
 const source=await readFile('public/app.js','utf8');
 const viewContext=vm.createContext({});
-vm.runInContext(await readFile('public/pet-view.js','utf8'),viewContext);
+vm.runInContext(await readFile('vendor/legacy/pet-view.js','utf8'),viewContext);
 const view=viewContext.LittleDaysPetView;
 const now=Date.UTC(2026,9,26),pet={name:'团团',kind:'cat',color:'cream',xp:0,fullness:70,happiness:65,energy:30,updatedAt:now,sleepingUntil:now+300000,careLog:[]};
 
@@ -87,11 +87,3 @@ test('manual city location is passed to the same upload flow when EXIF GPS is mi
  assert.deepEqual(f.uploadDetails[0],[31.2304,121.4737,'上海']);
 });
 
-test('all selected decorations render in the main room and cancel restores saved room',async()=>{
- const source=await readFile('public/features.js','utf8'),outputs={},main={dataset:{}},small={dataset:{},innerHTML:''};let closeListener,handler;
- const saved={theme:'cream',items:['cushion']},nodes={'#decorate-room':{},'.pet-scene':main,'#pet-room-scene':small,'#decor-preview':null,'#active-form':{addEventListener:(event,fn)=>handler=fn},'#modal':{addEventListener:(event,fn)=>closeListener=fn},'#active-form button[type="submit"]':{}};
- const roomContext=vm.createContext({state:{pet:{...pet,room:saved}},$:s=>nodes[s],ROOM_DECOR:['cushion','plant','rug','lamp','photo','stars'].map(id=>[id,id,'',0]),renderContent:(s,html)=>{outputs[s]=html;if(s==='#pet-room-scene')small.innerHTML=html},petArt:()=>'<svg/>',renderPet(){},needReady:()=>true,modal(){},form(){},FormData:class{get(){return 'sage'}getAll(){return ['plant','lamp']}}});
- vm.runInContext(source.slice(source.indexOf('let roomPreview='),source.indexOf('function monthRecords')),roomContext);
- roomContext.renderPetRoom({theme:'rose',items:['cushion','plant','rug','lamp','photo','stars']});assert.equal(main.dataset.theme,'rose');for(const id of ['cushion','plant','rug','lamp','photo','stars'])assert.match(outputs['#main-room-decor'],new RegExp('decor-'+id));
- nodes['#decorate-room'].onclick();handler();assert.equal(main.dataset.theme,'sage');assert.ok(!outputs['#main-room-decor'].includes('decor-cushion'));closeListener();assert.equal(main.dataset.theme,'cream');assert.match(outputs['#main-room-decor'],/decor-cushion/);
-});

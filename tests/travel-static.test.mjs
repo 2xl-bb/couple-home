@@ -14,6 +14,12 @@ test('travel footprint subsite has its own explicitly scoped PWA',async()=>{
   ]);
   assert.match(page,/serviceWorker\.register\('\.\/sw\.js', \{ scope: '\.\/' \}\)/);
   assert.match(page,/href="\.\/vendor\/leaflet\.css"/);assert.match(page,/src="\.\/vendor\/leaflet\.js"/);assert.doesNotMatch(page,/jsdelivr/);
+  assert.match(page,/href="\.\/vendor\/MarkerCluster\.css"/);assert.match(page,/href="\.\/vendor\/MarkerCluster\.Default\.css"/);
+  assert.match(page,/src="\.\/vendor\/leaflet\.markercluster\.js"/);
+  assert.match(page,/L\.markerClusterGroup\(\{[\s\S]*maxClusterRadius: 60[\s\S]*iconCreateFunction\(cluster\)/);
+  assert.match(page,/cluster\.getAllChildMarkers\(\)\.reduce/);assert.match(page,/homePhotoLayer\.addLayer\(marker\)/);
+  assert.match(page,/homePhotoLayer\.clearLayers\(\)/);assert.match(page,/className: 'home-photo-cluster'/);
+  assert.match(page,/homePhotoCount: group\.photos\.length/);
   assert.match(page,/fetch\('\/api\/home', \{[\s\S]*credentials: 'same-origin'/);
   assert.match(page,/photo\.latitude/);assert.match(page,/photo\.longitude/);assert.match(page,/wgs2gcj\(group\.lat, group\.lng\)/);
   assert.match(page,/\/api\/photos\/' \+ encodeURIComponent\(photo\.id\)/);assert.match(page,/function groupHomePhotos/);
@@ -44,10 +50,11 @@ test('travel footprint subsite has its own explicitly scoped PWA',async()=>{
   assert.match(postgresMigration,/CREATE TABLE public\.travel_footprints/);
   assert.match(r2Store,/putTravelPhoto/);assert.match(r2Store,/getTravelPhoto/);assert.match(r2Store,/deleteTravelPhoto/);
   assert.match(worker,/CACHE_PREFIX = 'couple-home-travel-'/);
-  assert.match(worker,/CACHE = CACHE_PREFIX \+ 'v3'/);
+  assert.match(worker,/CACHE = CACHE_PREFIX \+ 'v4'/);
   assert.match(worker,/url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(worker,/k\.startsWith\(CACHE_PREFIX\) && k !== CACHE/);
-  assert.match(worker,/\.\/vendor\/leaflet\.js/);assert.match(worker,/\.\/vendor\/leaflet\.css/);assert.match(worker,/origin !== self\.location\.origin/);
+  assert.match(worker,/\.\/vendor\/leaflet\.js/);assert.match(worker,/\.\/vendor\/leaflet\.css/);assert.match(worker,/\.\/vendor\/leaflet\.markercluster\.js/);
+  assert.match(worker,/\.\/vendor\/MarkerCluster\.css/);assert.match(worker,/\.\/vendor\/MarkerCluster\.Default\.css/);assert.match(worker,/origin !== self\.location\.origin/);
   assert.deepEqual(JSON.parse(manifest).scope,'/travel/');
   assert.match(home,/href="\/travel\/"/);assert.match(features,/location\.assign\('\/travel\/'\)/);
   assert.match(features,/travel:'🗺 旅行足迹'/);assert.match(features,/data-dock-page="travel"/);assert.match(features,/link\.href='\/travel\/'/);
@@ -57,7 +64,7 @@ test('Render build serves the travel app and its PWA files outside the login bou
   const root=fileURLToPath(new URL('../dist-supabase/',import.meta.url)),dataDir=await mkdtemp(resolve(tmpdir(),'couple-travel-public-')),
     origin='http://127.0.0.1:32125',app=createApplication({root,dataDir,origin});
   try{
-    for(const [path,type] of [['/travel/','text/html'],['/travel/sw.js','application/javascript'],['/travel/vendor/leaflet.js','application/javascript'],['/travel/vendor/leaflet.css','text/css'],['/travel/manifest.json','application/manifest+json'],['/travel/icon-192.png','image/png']]){
+    for(const [path,type] of [['/travel/','text/html'],['/travel/sw.js','application/javascript'],['/travel/vendor/leaflet.js','application/javascript'],['/travel/vendor/leaflet.css','text/css'],['/travel/vendor/leaflet.markercluster.js','application/javascript'],['/travel/vendor/MarkerCluster.css','text/css'],['/travel/vendor/MarkerCluster.Default.css','text/css'],['/travel/vendor/leaflet.markercluster.LICENSE','application/octet-stream'],['/travel/manifest.json','application/manifest+json'],['/travel/icon-192.png','image/png']]){
       const response=await app.dispatch(new Request(origin+path));assert.equal(response.status,200,path);assert.match(response.headers.get('content-type'),new RegExp('^'+type.replace('+','\\+')));assert.ok((await response.arrayBuffer()).byteLength>0,path);
     }
     assert.equal((await app.dispatch(new Request(origin+'/travel/vendor/leaflet.js.map'))).status,404);

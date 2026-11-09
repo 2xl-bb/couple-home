@@ -8,6 +8,8 @@
 <meta name="theme-color" content="#e8823c">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="./vendor/leaflet.css">
+<link rel="stylesheet" href="./vendor/MarkerCluster.css">
+<link rel="stylesheet" href="./vendor/MarkerCluster.Default.css">
 <style>
   :root {
     --warm: #e8823c; --paper: #faf6ee; --ink: #3a342c; --ink-soft: #8a7f6e; --line: #e8dfd0;
@@ -63,6 +65,9 @@
   .leaflet-popup-content-wrapper { border-radius: 12px; }
   .home-photo-marker { background: transparent !important; border: 0 !important; }
   .home-photo-marker span { display:grid;place-items:center;width:34px;height:34px;border:3px solid #fff;border-radius:50%;background:#557b91;color:#fff;font-size:13px;font-weight:700;box-shadow:0 2px 10px #263b4d70; }
+  .home-photo-cluster { background:transparent!important;border:0!important; }
+  .home-photo-cluster span { display:grid;place-items:center;width:42px;height:42px;border:3px solid #fff;border-radius:50%;background:#805b62;color:#fff;font-size:14px;font-weight:700;box-shadow:0 3px 12px #48353b65; }
+  body.dark .home-photo-cluster span { border-color:#2a241c;background:#bd887c;color:#241e1b; }
   .home-photo-popup { min-width:220px;max-width:320px; }
   .home-photo-popup h3 { margin:0 0 8px;font-size:14px; }
   .home-photo-popup .home-photo-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:250px;overflow:auto; }
@@ -390,13 +395,25 @@
 <div id="confetti"></div>
 
 <script src="./vendor/leaflet.js"></script>
+<script src="./vendor/leaflet.markercluster.js"></script>
 <script>
 // ================= 地图 =================
 const map = L.map('map', { zoomControl: true }).setView([27.5, 111.5], 6);
 map.doubleClickZoom.disable();
 L.tileLayer('https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', { subdomains: '1234', attribution: '© 高德地图', maxZoom: 19, maxNativeZoom: 18 }).addTo(map);
 document.getElementById('homeBtn').addEventListener('click', () => { window.location.href = '/'; });
-const homePhotoLayer = L.layerGroup().addTo(map);
+const homePhotoLayer = L.markerClusterGroup({
+  maxClusterRadius: 60,
+  iconCreateFunction(cluster) {
+    const count = cluster.getAllChildMarkers().reduce((total, marker) => total + (marker.options.homePhotoCount || 1), 0);
+    return L.divIcon({
+      className: 'home-photo-cluster',
+      html: '<span>' + count + '</span>',
+      iconSize: [48, 48],
+      iconAnchor: [24, 24]
+    });
+  }
+}).addTo(map);
 let homePhotoCount = 0;
 const homePhotosButton = document.getElementById('homePhotosBtn');
 homePhotosButton.addEventListener('click', () => {
@@ -531,7 +548,8 @@ function renderHomePhotoMarkers(photos) {
       iconSize: [36, 36],
       iconAnchor: [18, 18]
     });
-    const marker = L.marker([point.lat, point.lng], {icon, riseOnHover: true}).addTo(homePhotoLayer);
+    const marker = L.marker([point.lat, point.lng], {icon, riseOnHover: true, homePhotoCount: group.photos.length});
+    homePhotoLayer.addLayer(marker);
     const popup = document.createElement('div');
     popup.className = 'home-photo-popup';
     const title = document.createElement('h3');

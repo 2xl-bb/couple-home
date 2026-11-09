@@ -8,6 +8,12 @@ if (!["dev", "build"].includes(command)) throw new Error("Expected dev or build.
 const managedLinux = readExecutionProfile() === "managed-linux";
 await vendorExifr();
 
+if (command === "build") {
+  const { verifySourceAssetVersions } = await import("./verify-asset-versions.mjs");
+  const versions = await verifySourceAssetVersions();
+  console.log(`静态资源版本校验通过（${versions.count} 个文件，来源 app/home.html + public/sw.js）`);
+}
+
 if (managedLinux && command === "build") {
   const result = spawnSync("bash", [
     fileURLToPath(new URL("./build-verified.sh", import.meta.url)), ...args,

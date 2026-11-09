@@ -65,6 +65,15 @@ test('standalone server works with no Cloudflare or ChatGPT identity', async t =
     const html = await (await get('/')).text();
     assert.ok(!html.includes('href="/signin-with-chatgpt')); assert.ok(!html.includes('小月')); assert.ok(html.includes('LITTLE_DAYS_STANDALONE'));
     assert.equal((await get('/healthz')).status, 200);
+    const keepAlive = await get('/api/health');
+    assert.equal(keepAlive.status, 200);
+    assert.deepEqual(await keepAlive.json(), { ok: true });
+    // 保活端点必须只碰数据库：/healthz 还探测 Supabase Storage 与 R2，第三方抖动
+    // 会让 cron-job.org 的请求变成 500，Render 会据此判服务不健康。
+    const source = await readFile('server/application.mjs', 'utf8');
+    const healthBlock = source.slice(source.indexOf("url.pathname === '/api/health'"), source.indexOf("url.pathname === '/healthz'"));
+    assert.match(healthBlock, /await pingDatabase\(\)/);
+    assert.doesNotMatch(healthBlock, /BUCKET|VIDEO_STORE/);
     assert.equal((await get('/api/home')).status, 401);
     assert.equal((await get('/api/home', null, { 'oai-authenticated-user-id': 'forged', 'oai-authenticated-user-email': 'seedy@sites.test' })).status, 401);
     for (const path of ['/data/home.sqlite', '/.env', '/.git/config', '/signin-with-chatgpt']) assert.equal((await get(path)).status, 404);

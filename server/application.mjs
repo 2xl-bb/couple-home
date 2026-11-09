@@ -125,6 +125,10 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
   const assets = new Map();
   let active = 0;
 
+  // 只做一次轻量 SELECT 1。/healthz 在此之上还会探测 Supabase Storage 与 R2，
+  // 第三方抖动会让保活返回 500 并被 Render 判为不健康，所以保活单独走 /api/health。
+  const pingDatabase = () => db.health ? db.health() : db.raw.prepare('SELECT 1').get();
+
   async function dispatch(request) {
     return requests.run({ request, env }, async () => {
       const url = new URL(request.url);
@@ -136,9 +140,13 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
           body: JSON.stringify({ slot: 1, password }) }));
       }
       if (url.pathname === '/api/identities' && request.method === 'PUT') return Response.json(await entry.rename(request), { headers: { 'Cache-Control': 'no-store' } });
+      // 保活端点：只查数据库，不碰任何外部存储，供 cron-job.org 定时命中。
+      if (url.pathname === '/api/health' && request.method === 'GET') {
+        await pingDatabase();
+        return Response.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+      }
       if (url.pathname === '/healthz' && request.method === 'GET') {
-        if (db.health) await db.health();
-        else db.raw.prepare('SELECT 1').get();
+        await pingDatabase();
         if (env.BUCKET.health) await env.BUCKET.health();
         if (env.VIDEO_STORE?.health) await env.VIDEO_STORE.health();
         return Response.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });

@@ -76,6 +76,13 @@ test('Render build serves the travel app and its PWA files outside the login bou
       const response=await app.dispatch(new Request(origin+path));assert.equal(response.status,200,path);assert.match(response.headers.get('content-type'),new RegExp('^'+type.replace('+','\\+')));assert.ok((await response.arrayBuffer()).byteLength>0,path);
     }
     assert.equal((await app.dispatch(new Request(origin+'/travel/vendor/leaflet.js.map'))).status,404);
+    // bfcache：HTML 用 no-cache 才具备往返缓存资格；静态资源维持 no-store，版本策略不变。
+    const cacheOf=async path=>(await app.dispatch(new Request(origin+path))).headers.get('cache-control');
+    assert.equal(await cacheOf('/travel/'),'no-cache');
+    assert.equal(await cacheOf('/'),'no-cache');
+    assert.equal(await cacheOf('/style.css'),'no-store');
+    assert.equal(await cacheOf('/travel/vendor/leaflet.css'),'no-store');
+    assert.equal(await cacheOf('/sw.js'),'no-cache');
     assert.match(travelContentSecurityPolicy(),/script-src 'self' 'unsafe-inline'/);assert.match(travelContentSecurityPolicy(),/img-src 'self'/);assert.match(travelContentSecurityPolicy(),/connect-src 'self'/);assert.match(travelContentSecurityPolicy(),/https:\/\/\*\.is\.autonavi\.com/);assert.match(travelContentSecurityPolicy(),/https:\/\/nominatim\.openstreetmap\.org/);assert.doesNotMatch(travelContentSecurityPolicy(),/jsdelivr/);
   }finally{await app.close();await rm(dataDir,{recursive:true,force:true})}
 });

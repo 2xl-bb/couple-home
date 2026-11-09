@@ -234,6 +234,14 @@ async function truthDareRefresh(session=truthDareSession){
  catch(error){if(session===truthDareSession&&$('#modal').open&&$('#truth-dare-status')){$('#truth-dare-status').textContent=error.message;$('#truth-dare-waiting').hidden=true}}
  finally{truthDarePollRunning=false}
 }
+// SSE 绑定抽成可复用入口：openTruthDare() 与 bfcache 恢复后的重连共用同一套处理。
+function bindTruthDareStream(session){
+ truthDareEventSource=new EventSource('/api/games/truth-dare/stream');
+ truthDareEventSource.onmessage=event=>{if(session!==truthDareSession||!$('#modal').open||!$('#truth-dare-board'))return;try{const update=JSON.parse(event.data);truthDareShowGame(update.game)}catch{void truthDareRefresh(session)}};
+ truthDareEventSource.onopen=()=>{if(session!==truthDareSession)return;if(truthDareStreamWasOpen)void truthDareRefresh(session);truthDareStreamWasOpen=true};
+ truthDareEventSource.onerror=()=>{if(session===truthDareSession&&$('#modal').open&&$('#truth-dare-status'))$('#truth-dare-status').textContent='实时连接暂时中断，正在自动重连……'};
+ truthDareEventSource.addEventListener('sync-error',()=>{if(session===truthDareSession&&$('#modal').open&&$('#truth-dare-status'))$('#truth-dare-status').textContent='实时同步暂不可用，正在重试……'});
+}
 async function truthDareAction(path,payload){
  if(truthDareActionRunning)return;
  const session=truthDareSession;
@@ -284,14 +292,21 @@ function openTruthDare(){
  };
  for(const selector of ['#truth-dare-chat-input','#truth-dare-custom','#truth-dare-answer-input'])$(selector).addEventListener('focus',event=>{const target=event.currentTarget;setTimeout(()=>target.scrollIntoView({block:'nearest',behavior:'smooth'}),120)});
  void truthDareLoadTodos(session).catch(error=>toast(error.message));
- truthDareEventSource=new EventSource('/api/games/truth-dare/stream');
- truthDareEventSource.onmessage=event=>{if(session!==truthDareSession||!$('#modal').open||!$('#truth-dare-board'))return;try{const update=JSON.parse(event.data);truthDareShowGame(update.game)}catch{void truthDareRefresh(session)}};
- truthDareEventSource.onopen=()=>{if(session!==truthDareSession)return;if(truthDareStreamWasOpen)void truthDareRefresh(session);truthDareStreamWasOpen=true};
- truthDareEventSource.onerror=()=>{if(session===truthDareSession&&$('#modal').open&&$('#truth-dare-status'))$('#truth-dare-status').textContent='实时连接暂时中断，正在自动重连……'};
- truthDareEventSource.addEventListener('sync-error',()=>{if(session===truthDareSession&&$('#modal').open&&$('#truth-dare-status'))$('#truth-dare-status').textContent='实时同步暂不可用，正在重试……'});
+ bindTruthDareStream(session);
  truthDareRefresh(session);
 }
 window.LittleDaysTruthDare={open:openTruthDare,questions:truthDareQuestions};
+// bfcache：文档进入往返缓存前必须释放 SSE 长连接，否则该页会被判定为不可缓存。
+// 恢复时不会触发 load / DOMContentLoaded，弹窗若还开着就在这里重连并刷新一次状态。
+window.addEventListener('pagehide',()=>{
+ if(truthDareEventSource){truthDareEventSource.close();truthDareEventSource=null}
+ truthDareStreamWasOpen=false;
+});
+window.addEventListener('pageshow',event=>{
+ if(!event.persisted||!$('#modal').open||!$('#truth-dare-board')||truthDareEventSource)return;
+ bindTruthDareStream(truthDareSession);
+ void truthDareRefresh(truthDareSession);
+});
 document.addEventListener('click',event=>{const trigger=event.target instanceof Element?event.target.closest('[data-open-truth-dare]'):null;if(trigger){event.preventDefault();openTruthDare()}});
 $('#truth-dare-todos-open').addEventListener('click',openTruthDareTodos);
 

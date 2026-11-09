@@ -131,6 +131,14 @@ test('service worker cache version and resource URLs are refreshed', () => {
   assert.match(sw, /features\.js\?v=/);
 });
 
+test('bfcache lifecycle closes SSE on pagehide and reconnects on restore', () => {
+  assert.match(features,/window\.addEventListener\('pagehide'/);
+  assert.match(features,/truthDareEventSource\.close\(\)/);
+  assert.match(features,/window\.addEventListener\('pageshow'/);
+  assert.match(features,/bindTruthDareStream\(truthDareSession\)/);
+  assert.match(app,/event\.persisted.*sync\(true\)/);
+});
+
 test('startup scripts stay deferred and do not preload over the blocking stylesheet', () => {
   // 3G 限速 A/B 实测：preload app.js 把它的 startTime 提前 30~90ms，但会与 83KB 的
   // 阻塞 style.css 抢带宽，FCP 反而慢 80~130ms。因此保持「一个阻塞 CSS + 全 defer 脚本」。

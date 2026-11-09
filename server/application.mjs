@@ -185,7 +185,10 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
         if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405,headers:{Allow:'GET, HEAD'}});
         const content=await readStaticFile(travel[0]);
         if(!content)return jsonError('页面不存在。',404);
-        return new Response(content,{headers:{'Content-Type':travel[1],'Cache-Control':url.pathname.endsWith('/sw.js')?'no-cache':'no-store','X-Couple-Travel-Asset':'1'}});
+        // HTML 用 no-cache：no-store 会让文档失去 bfcache 资格，返回主站就变成整页重载。
+        // no-cache 仍要求每次导航回源校验；CSS/JS/图片等静态资源继续 no-store。
+        const cacheControl=url.pathname.endsWith('/sw.js')||String(travel[1]).startsWith('text/html')?'no-cache':'no-store';
+        return new Response(content,{headers:{'Content-Type':travel[1],'Cache-Control':cacheControl,'X-Couple-Travel-Asset':'1'}});
       }
       if (!asset) return jsonError('页面不存在。', 404);
       if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });
@@ -194,7 +197,8 @@ export function createApplication({ root, dataDir, origin, trustProxy = false, s
         if(!content)return jsonError('页面不存在。',404);
         assets.set(url.pathname,content);
       }
-      return new Response(assets.get(url.pathname), { headers: { 'Content-Type': asset[1], 'Cache-Control': url.pathname === '/sw.js' ? 'no-cache' : 'no-store' } });
+      const cacheControl=url.pathname==='/sw.js'||String(asset[1]).startsWith('text/html')?'no-cache':'no-store';
+      return new Response(assets.get(url.pathname), { headers: { 'Content-Type': asset[1], 'Cache-Control': cacheControl } });
     });
   }
 

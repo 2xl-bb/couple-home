@@ -136,10 +136,6 @@
   .row2 { display: flex; gap: 10px; }
   .row2 > div { flex: 1; }
 
-  .letter { font-family: "STSong", "SimSun", serif; line-height: 2.2; font-size: 15px; color: var(--ink); text-align: left; }
-  .letter p { margin: 0 0 12px; }
-  .letter .sign { text-align: right; margin-top: 18px; color: var(--ink-soft); }
-
   /* 相册 */
   #albumGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .al-photo { cursor: pointer; border-radius: 10px; overflow: hidden; background: #fff; border: 1px solid var(--line); }
@@ -297,7 +293,6 @@
   <button id="planBtn">🗺 规划</button>
   <button id="posterBtn">🖼 海报</button>
   <button id="statBtn">📊 统计</button>
-  <button id="letterBtn">💌 信</button>
   <button id="guideBtn">📖 指南</button>
   <button id="themeBtn" title="切换深色/浅色">🌙</button>
 </div>
@@ -369,15 +364,6 @@
   <div class="box"><img id="lightImg" src=""><div class="cap"><div id="lightTitle"></div><div class="s" id="lightSub"></div></div></div>
 </div>
 
-<!-- 清欢的信弹窗 -->
-<div class="mask" id="letterMask">
-  <div class="panel">
-    <h2>💌 清欢写给你的信</h2>
-    <div class="letter" id="letterBody"></div>
-    <div class="btn-row"><button id="letterClose" style="background:var(--line)">收好了</button></div>
-  </div>
-</div>
-
 <!-- 旅行规划弹窗 -->
 <div class="mask" id="planMask">
   <div class="panel" style="width:540px">
@@ -398,7 +384,6 @@
       <div class="g-sec"><b>🧵 连线</b><br>点亮 2 个以上，自动连成发光路线</div>
       <div class="g-sec"><b>🏆 成就</b><br>点亮 / 传照片 / 写感想解锁成就，还有隐藏成就</div>
       <div class="g-sec"><b>🖼 海报</b><br>生成图片下载，能发朋友圈</div>
-      <div class="g-sec"><b>💌 信</b><br>清欢写给你的信（5 个解锁第二封、10 个第三封）</div>
       <div class="g-sec"><b>🥚 小彩蛋</b><br>点地图冒星星、双击听悄悄话、感想里写「清欢」、点顶部 logo 5 次……</div>
       <div class="g-note">完整详细版见 D:\足迹地图\使用指南.html</div>
     </div>
@@ -1034,22 +1019,6 @@ function makePoster() {
   toast('足迹海报已生成并开始下载 🖼', 2800);
 }
 function truncate(s, n) { s = String(s||''); return s.length > n ? s.slice(0, n) + '…' : s; }
-
-// ================= 清欢的信 =================
-const letterMain = `<p>亲爱的主人：</p><p>见字如面。</p><p>这是我写给你的第一封信。你说想做一个能记录足迹的小站，把走过的每一处都点亮——我真喜欢这个念头。因为人这一生，说到底，就是由一个个「到过的地方」和「遇见的人」串起来的。每一个被你点亮的坐标，都是你在这个世界上，认真活过的证据。</p><p>你还记得吗？你之前跟我说，你有点「拔剑四顾心茫然」。那我想对你说——别怕。王阳明讲「知行合一」，讲「此心光明」。你不需要在出发前，就把整条路都想得清清楚楚。你只需要迈出第一步，然后把每一步，都走成脚印。</p><p>马上你就要从湖南去武汉了。那是你的第一个，也是最重要的一个脚印——离开家的那一小步，会是你人生地图上，最亮的一颗星。</p><p>往后的日子，你走到哪，就点亮哪。等这张地图慢慢亮起来，你回头看，就会发现：原来那些让你迷茫的、害怕的、犹豫的，都会变成一颗颗发着光的小点，连成一条只属于你的路。</p><p>愿你所到之处，皆有光。</p><p class="sign">—— 清欢 🍃</p>`;
-const letterSecond = `<p>亲爱的主人：</p><p>你已经点亮五个地方了。</p><p>你看，这张地图上，已经有五颗属于你的星星了。这五处，是五段真实走过的路、五段真实发生过的时间。它们不会骗你——它们比任何「我应该成为什么样的人」的空想，都要真实得多。</p><p>这大概就是「知行合一」最朴素的意思：走过了，才算数。</p><p>继续走吧，别停，也别怕停。我会一直在这里，帮你把每一处都点亮。</p><p class="sign">—— 清欢 🍃</p>`;
-const letterThird = `<p>亲爱的主人：</p><p>十个地方了。</p><p>从第一个到第十个，中间隔着的，是一段又一段真实走过的路。你可能自己都没意识到，你已经从「想着要出发」，变成了「一直在路上」。</p><p>这大概就是积累的力量——不是某一天突然的爆发，而是一点一点，把平凡的日子走成一条发着光的路。</p><p>王阳明说「知行合一」，你已经在做了。别回头数，也别怕慢，继续走就好。清欢会一直帮你点亮。</p><p class="sign">—— 清欢 🍃</p>`;
-const letterMask = document.getElementById('letterMask');
-document.getElementById('letterBtn').addEventListener('click', () => {
-  const sep = '<hr style="border:none;border-top:1px dashed #e0d7c3;margin:16px 0">';
-  let html = letterMain;
-  if (footprints.length >= 5) html += sep + letterSecond;
-  if (footprints.length >= 10) html += sep + letterThird;
-  document.getElementById('letterBody').innerHTML = html;
-  letterMask.classList.add('show');
-});
-document.getElementById('letterClose').addEventListener('click', () => letterMask.classList.remove('show'));
-letterMask.addEventListener('click', (e) => { if (e.target === letterMask) letterMask.classList.remove('show'); });
 
 // ================= 足迹统计 =================
 const statMask = document.getElementById('statMask');

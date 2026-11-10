@@ -13,6 +13,8 @@ test('travel footprint subsite has its own explicitly scoped PWA',async()=>{
     text('public/travel/index.html'),text('public/travel/sw.js'),text('public/travel/manifest.json'),text('app/home.html'),text('public/features.js'),text('public/style.css'),
   ]);
   assert.match(page,/serviceWorker\.register\('\.\/sw\.js', \{ scope: '\.\/' \}\)/);
+  // 「清欢的信」已从副站移除，防止按钮/弹窗/逻辑被误加回来。
+  assert.doesNotMatch(page,/letterBtn|letterBody|letterMask/);
   assert.match(page,/href="\.\/vendor\/leaflet\.css"/);assert.match(page,/src="\.\/vendor\/leaflet\.js"/);assert.doesNotMatch(page,/jsdelivr/);
   assert.match(page,/href="\.\/vendor\/MarkerCluster\.css"/);assert.match(page,/href="\.\/vendor\/MarkerCluster\.Default\.css"/);
   assert.match(page,/src="\.\/vendor\/leaflet\.markercluster\.js"/);
